@@ -47,12 +47,21 @@
 extern "C" {
 #endif 
 
+#include <message.h>
 
-#define SERIAL_RXQ_SIZE 64
+#define RX_MSG_QUEUE_SIZE 10
 
-unsigned int serial_rxq_input_idx = 0;
-unsigned int serial_rxq_output_idx = 0;
-char serial_rxq[SERIAL_RXQ_SIZE];
+#define RX_MSG_QUEUE 8
+#define TX_MSG_QUEUE 9
+
+typedef struct serial_rx_msg
+{
+	MESSAGE_HEADER_STRUCT HEADER;
+	unsigned char data;
+} SERIAL_RX_MSG, * SERIAL_RX_MSG_PTR;
+
+extern _pool_id rx_message_pool;
+
 /*
 ** ===================================================================
 **     Callback    : serial_task

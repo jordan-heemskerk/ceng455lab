@@ -38,7 +38,7 @@ extern "C" {
 
 
 /* User includes (#include below this line is not maintained by Processor Expert) */
-
+#include <stdio.h>
 /*
 ** ===================================================================
 **     Callback    : myUART_RxCallback
@@ -59,12 +59,26 @@ void myUART_RxCallback(uint32_t instance, void * uartState)
 
 	// grab character and dump into serial_rxq
 
-	int i = 0;
-	for (i = 0; i < sizeof(myRxBuff); i++) {
-		if (myRxBuff[i] == 0) break;
-		serial_rxq[serial_rxq_idx] = myRxBuff[i];
-		serial_rxq_idx++;
-		if (serial_rxq_idx > SERIAL_RXQ_SIZE-2) serial_rxq_idx = 0;
+	SERIAL_RX_MSG_PTR msg_ptr;
+	_queue_id client_id;
+	bool result;
+
+	msg_ptr = (SERIAL_RX_MSG_PTR)_msg_alloc(rx_message_pool);
+
+	if (msg_ptr == NULL) {
+		printf("\n Could not allocate a new message \n");
+		_task_block();
+	}
+
+	msg_ptr->HEADER.TARGET_QID = _msgq_get_id(0, RX_MSG_QUEUE);
+	msg_ptr->HEADER.SIZE = sizeof(SERIAL_RX_MSG);
+	msg_ptr->data = myRxBuff[0];
+
+	result = _msgq_send(msg_ptr);
+
+	if (result != TRUE) {
+		printf("\nCould not send a message\n");
+		_task_block();
 	}
 
 	//send data back to UART

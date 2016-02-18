@@ -36,7 +36,12 @@
 extern "C" {
 #endif 
 
-//char serial_rxq[64];
+_pool_id rx_message_pool;
+
+#define LINE_BUFFER_SIZE 128
+
+char line_buffer[LINE_BUFFER_SIZE];
+unsigned int line_buffer_offset = 0;
 
 /* User includes (#include below this line is not maintained by Processor Expert) */
 
@@ -91,14 +96,52 @@ void handler_task(os_task_param_t task_init_data)
   while (1) {
 #endif
     /* Write your code here ... */
-    char line_buffer[64];
+	  SERIAL_RX_MSG_PTR msg_ptr;
+	  _mqx_uint i;
+	  _queue_id serial_rx_qid;
+	  bool result;
+	  _task_id task_id;
+
+	  printf("Handler Task Created\n\r");
+
+	  /* open a message queue for recieving chars from serial rx ISR */
+	  serial_rx_qid = _msgq_open(RX_MSG_QUEUE, 0);
+
+	  if (serial_rx_qid == 0) {
+		  printf("Could not open the serial rx queue\n");
+		  _task_block();
+	  }
+
+	  rx_message_pool = _msgpool_create(sizeof(SERIAL_RX_MSG), RX_MSG_QUEUE_SIZE, 0, 0);
+
+	  if (rx_message_pool == MSGPOOL_NULL_POOL_ID) {
+		  printf("\n Could not create the rx_message_pool\n");
+		  _task_block();
+	  }
+
+	  while (TRUE) {
+		  msg_ptr = _msgq_receive(serial_rx_qid, 0);
+
+		  if (msg_ptr == NULL) {
+			  printf("\n Receiving message failed\n");
+			  _task_block();
+		  }
+
+
+		  // put new character into the line buffer
+		  line_buffer[line_buffer_offset] = msg_ptr->data;
+		  line_buffer_offset++;
+		  if (line_buffer_offset > LINE_BUFFER_SIZE-2) { // account for  null terminator
+			  line_buffer_offset = 0;
+		  }
+		  _msg_free(msg_ptr);
+		  printf("%s \n", line_buffer);
+	  }
+
     
     OSA_TimeDelay(10);                 /* Example code (for task release) */
    
-    printf("Handler Task Created\n\r");
-    printf("serial_rqx: %s\n\r", serial_rxq);
-    
-    while()
+
 
     
 #ifdef PEX_USE_RTOS   
