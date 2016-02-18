@@ -4,13 +4,13 @@
 /*##                                                                         */
 /*##     Filename  : ProcessorExpert.ld                                      */
 /*##                                                                         */
-/*##     Project   : serial_echo                                             */
+/*##     Project   : serial_driver                                           */
 /*##                                                                         */
 /*##     Processor : MK64FN1M0VLL12                                          */
 /*##                                                                         */
 /*##     Compiler  : GNU C Compiler                                          */
 /*##                                                                         */
-/*##     Date/Time : 2016-02-03, 15:53, # CodeGen: 0                         */
+/*##     Date/Time : 2016-02-17, 16:00, # CodeGen: 0                         */
 /*##                                                                         */
 /*##     Abstract  :                                                         */
 /*##                                                                         */

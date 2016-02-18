@@ -36,6 +36,7 @@
 extern "C" {
 #endif 
 
+//char serial_rxq[64];
 
 /* User includes (#include below this line is not maintained by Processor Expert) */
 
@@ -67,6 +68,38 @@ void serial_task(os_task_param_t task_init_data)
    
     
     
+    
+#ifdef PEX_USE_RTOS   
+  }
+#endif    
+}
+
+/*
+** ===================================================================
+**     Callback    : handler_task
+**     Description : Task function entry.
+**     Parameters  :
+**       task_init_data - OS task parameter
+**     Returns : Nothing
+** ===================================================================
+*/
+void handler_task(os_task_param_t task_init_data)
+{
+  /* Write your local variable definition here */
+  
+#ifdef PEX_USE_RTOS
+  while (1) {
+#endif
+    /* Write your code here ... */
+    char line_buffer[64];
+    
+    OSA_TimeDelay(10);                 /* Example code (for task release) */
+   
+    printf("Handler Task Created\n\r");
+    printf("serial_rqx: %s\n\r", serial_rxq);
+    
+    while()
+
     
 #ifdef PEX_USE_RTOS   
   }

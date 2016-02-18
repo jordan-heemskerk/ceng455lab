@@ -53,8 +53,22 @@ extern "C" {
 void myUART_RxCallback(uint32_t instance, void * uartState)
 {
   /* Write your code here ... */
-	printf("%s\n\n", myRxBuff);
-	UART_DRV_SendData(myUART_IDX, myRxBuff, sizeof(myRxBuff));
+
+	//debug
+	//printf("%s\n\n", myRxBuff);
+
+	// grab character and dump into serial_rxq
+
+	int i = 0;
+	for (i = 0; i < sizeof(myRxBuff); i++) {
+		if (myRxBuff[i] == 0) break;
+		serial_rxq[serial_rxq_idx] = myRxBuff[i];
+		serial_rxq_idx++;
+		if (serial_rxq_idx > SERIAL_RXQ_SIZE-2) serial_rxq_idx = 0;
+	}
+
+	//send data back to UART
+	//UART_DRV_SendData(myUART_IDX, myRxBuff, sizeof(myRxBuff));
 }
 
 /* END Events */

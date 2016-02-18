@@ -41,11 +41,18 @@
 #include "MainTask.h"
 #include "SerialTask.h"
 #include "myUART.h"
+#include "Handler.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif 
 
+
+#define SERIAL_RXQ_SIZE 64
+
+unsigned int serial_rxq_input_idx = 0;
+unsigned int serial_rxq_output_idx = 0;
+char serial_rxq[SERIAL_RXQ_SIZE];
 /*
 ** ===================================================================
 **     Callback    : serial_task
@@ -57,6 +64,17 @@ extern "C" {
 */
 void serial_task(os_task_param_t task_init_data);
 
+
+/*
+** ===================================================================
+**     Callback    : handler_task
+**     Description : Task function entry.
+**     Parameters  :
+**       task_init_data - OS task parameter
+**     Returns : Nothing
+** ===================================================================
+*/
+void handler_task(os_task_param_t task_init_data);
 
 /* END os_tasks */
 
