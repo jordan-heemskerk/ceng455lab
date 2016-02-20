@@ -60,9 +60,9 @@ void serial_task(os_task_param_t task_init_data)
   /* Write your local variable definition here */
   printf("serialTask Created!\n\r");
   
-  char buf[13];
-  sprintf(buf, "\n\rType here: ");
-  UART_DRV_SendDataBlocking(myUART_IDX, buf, sizeof(buf), 1000);
+  //char buf[13];
+  //sprintf(buf, "\n\rType here: ");
+  //UART_DRV_SendDataBlocking(myUART_IDX, buf, sizeof(buf), 1000);
 
 #ifdef PEX_USE_RTOS
   while (1) {
@@ -101,6 +101,13 @@ void queue_tx_char(unsigned char recv_char) {
 		  printf("\n Could not send tx message\n");
 		  _task_block();
 	  }
+}
+
+void queue_tx_str(unsigned char* str, uint16_t len) {
+	int i;
+	for (i = 0; i < len; i++) {
+		queue_tx_char(str[i]);
+	}
 }
 
 void line_buffer_add_char (unsigned char toAdd) {\
@@ -220,6 +227,41 @@ void handler_task(os_task_param_t task_init_data)
 		  }
 
 
+		  if (recv_char == 13) {
+
+			  //debug: printf("ENTER PRESSED (CR)\n");
+
+			  //HANDLE _getLine stuff here
+
+			  printf("%s \n", line_buffer);
+
+			  queue_tx_char(10); // send line feed, ie go to next line
+
+			  // get number of chars to go back
+			  char len[4];
+			  sprintf(len, "%d", line_buffer_offset);
+
+			  // go back that many on serial
+			  queue_tx_char(0x1B);
+			  queue_tx_char(0x5B);
+			  queue_tx_str(len, strlen(len));
+			  queue_tx_char('D');
+
+			  // go back in line buffer
+			  memset(line_buffer, 0, LINE_BUFFER_SIZE);
+			  line_buffer_offset = 0;
+
+
+
+
+		  }
+
+		  if (recv_char == 10) {
+			  printf("ENTER PRESSED (LF)\n");
+		  }
+
+
+
 		  if (recv_char <= 127 && recv_char >= 32) { // check for printable character
 			  //serial
 			  queue_tx_char(recv_char);
@@ -249,8 +291,6 @@ void handler_task(os_task_param_t task_init_data)
 			  _msg_free(tx_msg_ptr);
 		  }
 
-		  /* dump line buffer for debug */
-		  printf("%s \n", line_buffer);
 	  }
 
     

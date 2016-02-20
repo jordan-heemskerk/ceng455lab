@@ -49,8 +49,8 @@ extern "C" {
 
 #include <message.h>
 
-#define RX_MSG_QUEUE_SIZE 16
-#define TX_MSG_QUEUE_SIZE 16
+#define RX_MSG_QUEUE_SIZE 3*128
+#define TX_MSG_QUEUE_SIZE 3*128
 
 #define RX_MSG_QUEUE 8
 #define TX_MSG_QUEUE 9
