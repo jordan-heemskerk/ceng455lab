@@ -1,4 +1,5 @@
 /* ###################################################################
+
 **     Filename    : os_tasks.c
 **     Project     : serial_echo
 **     Processor   : MK64FN1M0VLL12
@@ -38,6 +39,7 @@ extern "C" {
 
 _pool_id rx_message_pool;
 _pool_id tx_message_pool;
+_queue_id serial_tx_qid = 0;
 
 #define LINE_BUFFER_SIZE 128
 
@@ -45,6 +47,12 @@ char line_buffer[LINE_BUFFER_SIZE];
 unsigned int line_buffer_offset = 0;
 
 /* User includes (#include below this line is not maintained by Processor Expert) */
+
+void start_serial_task() {
+	// create a new serial task
+	_task_id new_task;
+	new_task = _task_create(0, SERIALTASK_TASK, 0);
+}
 
 /*
 ** ===================================================================
@@ -57,12 +65,32 @@ unsigned int line_buffer_offset = 0;
 */
 void serial_task(os_task_param_t task_init_data)
 {
-  /* Write your local variable definition here */
-  printf("serialTask Created!\n\r");
-  
-  //char buf[13];
-  //sprintf(buf, "\n\rType here: ");
-  //UART_DRV_SendDataBlocking(myUART_IDX, buf, sizeof(buf), 1000);
+	 //printf("serialTask Created!\n\r");
+
+	SERIAL_CHAR_MSG_PTR tx_msg_ptr;
+	if(serial_tx_qid == 0){
+		serial_tx_qid = _msgq_open_system(TX_MSG_QUEUE, 0, start_serial_task, NULL); // can change nulls for notification function
+	}
+
+	  while(_msgq_get_count(serial_tx_qid)) {
+		  tx_msg_ptr = _msgq_receive(serial_tx_qid, 0);
+		  if (tx_msg_ptr == NULL) {
+			  printf("\n Receiving message failed\n");
+			  _task_block();
+		  }
+
+		  // Receive new char
+		  unsigned char recv_char[2];
+		  recv_char[0] = tx_msg_ptr->data;
+		  recv_char[1] = '\0';
+
+		  UART_DRV_SendDataBlocking(myUART_IDX, recv_char, 1, 0);
+
+		  // free up the message sent to us, we don't need it anymore
+		  _msg_free(tx_msg_ptr);
+	  }
+	  _task_block();
+
 
 #ifdef PEX_USE_RTOS
   while (1) {
@@ -158,12 +186,7 @@ void handler_task(os_task_param_t task_init_data)
 	  printf("Handler Task Created\n\r");
 
 	  /* setup a system message queue for outgoing chars for serial tx ISR */
-	  serial_tx_qid = _msgq_open_system(TX_MSG_QUEUE, 0, NULL, NULL); // can change nulls for notification function
 
-	  if (serial_tx_qid == 0) {
-		  printf("Could not open the serial tx system queue\n");
-		  _task_block();
-	  }
 
 	  result = _msgpool_create_system(sizeof(SERIAL_CHAR_MSG), TX_MSG_QUEUE_SIZE, 0, 0);
 
@@ -272,25 +295,6 @@ void handler_task(os_task_param_t task_init_data)
 
 		  // echo back necessary characters
 		  /* open a message queue for recieving chars from serial rx ISR */
-
-		  while(_msgq_get_count(serial_tx_qid)) {
-			  tx_msg_ptr = _msgq_receive(serial_tx_qid, 0);
-			  if (tx_msg_ptr == NULL) {
-				  printf("\n Receiving message failed\n");
-				  _task_block();
-			  }
-
-			  // Receive new char
-			  unsigned char recv_char[2];
-			  recv_char[0] = tx_msg_ptr->data;
-			  recv_char[1] = '\0';
-
-			  UART_DRV_SendDataBlocking(myUART_IDX, recv_char, 1, 0);
-
-			  // free up the message sent to us, we don't need it anymore
-			  _msg_free(tx_msg_ptr);
-		  }
-
 	  }
 
     
