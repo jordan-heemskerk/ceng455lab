@@ -69,7 +69,7 @@ void serial_task(os_task_param_t task_init_data)
 
 	SERIAL_CHAR_MSG_PTR tx_msg_ptr;
 	if(serial_tx_qid == 0){
-		serial_tx_qid = _msgq_open_system(TX_MSG_QUEUE, 0, NULL, NULL); // can change nulls for notification function
+		serial_tx_qid = _msgq_open_system(TX_MSG_QUEUE, 0, start_serial_task, NULL); // can change nulls for notification function
 	}
 
 	  while(_msgq_get_count(serial_tx_qid)) {
@@ -295,6 +295,7 @@ void handler_task(os_task_param_t task_init_data)
 			  printf("ENTER PRESSED (LF)\n");
 		  }
 
+		  // ctrl-w pressed
 		  if (recv_char == 23){
 			  unsigned
 			  int temp_line_buffer_offset = line_buffer_offset;
@@ -338,6 +339,41 @@ void handler_task(os_task_param_t task_init_data)
 
 		  }
 
+		  // ctrl-l pressed
+		  if (recv_char == 12){
+
+			  unsigned int chars_to_del = line_buffer_offset;
+
+			  // get number of chars to go back
+			  char len[4];
+			  memset(len, 0, 4);
+			  sprintf(len, "%d", chars_to_del);
+
+			  // go back that many on serial
+			  // go back "len" spaces
+			  queue_tx_char(0x1B);
+			  queue_tx_char(0x5B);
+			  queue_tx_str(len, strlen(len));
+			  queue_tx_char('D');
+
+			  // print space
+			  int i;
+			  for(i=0; i < chars_to_del; i++){
+				  queue_tx_char(' ');
+			  }
+
+			  // go back that many on serial
+			  // go back "len" spaces
+			  queue_tx_char(0x1B);
+			  queue_tx_char(0x5B);
+			  queue_tx_str(len, strlen(len));
+			  queue_tx_char('D');
+
+
+			  // go back in line buffer
+			  memset(line_buffer, 0, LINE_BUFFER_SIZE);
+			  line_buffer_offset = 0;
+		  }
 
 		  if (recv_char <= 127 && recv_char >= 32) { // check for printable character
 			  //serial
@@ -346,7 +382,7 @@ void handler_task(os_task_param_t task_init_data)
 			  line_buffer_add_char(recv_char);
 		  }
 
-		  start_serial_task();
+		  //start_serial_task();
 
 		  // echo back necessary characters
 		  /* open a message queue for recieving chars from serial rx ISR */
