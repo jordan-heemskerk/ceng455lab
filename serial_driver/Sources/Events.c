@@ -59,11 +59,11 @@ void myUART_RxCallback(uint32_t instance, void * uartState)
 
 	// grab character and dump into serial_rxq
 
-	SERIAL_RX_MSG_PTR msg_ptr;
+	SERIAL_CHAR_MSG_PTR msg_ptr;
 	_queue_id client_id;
 	bool result;
 
-	msg_ptr = (SERIAL_RX_MSG_PTR)_msg_alloc(rx_message_pool);
+	msg_ptr = (SERIAL_CHAR_MSG_PTR)_msg_alloc(rx_message_pool);
 
 	if (msg_ptr == NULL) {
 		printf("\n Could not allocate a new message \n");
@@ -71,7 +71,7 @@ void myUART_RxCallback(uint32_t instance, void * uartState)
 	}
 
 	msg_ptr->HEADER.TARGET_QID = _msgq_get_id(0, RX_MSG_QUEUE);
-	msg_ptr->HEADER.SIZE = sizeof(SERIAL_RX_MSG);
+	msg_ptr->HEADER.SIZE = sizeof(SERIAL_CHAR_MSG);
 	msg_ptr->data = myRxBuff[0];
 
 	result = _msgq_send(msg_ptr);
@@ -84,6 +84,7 @@ void myUART_RxCallback(uint32_t instance, void * uartState)
 	//send data back to UART
 	//UART_DRV_SendData(myUART_IDX, myRxBuff, sizeof(myRxBuff));
 }
+
 
 /* END Events */
 

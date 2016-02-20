@@ -3,7 +3,7 @@
   <Header>
     <Name>serial_driver</Name>
     <SavedBy>jheems</SavedBy>
-    <ModificationStamp>4</ModificationStamp>
+    <ModificationStamp>7</ModificationStamp>
     <Date>2016-02-03</Date>
     <IDE>Eclipse IDE</IDE>
     <PEversion>1.12.2.RT7_b1550-0615</PEversion>
@@ -29,7 +29,7 @@
     <UseExistingModules>true</UseExistingModules>
     <RenamePeripheries>false</RenamePeripheries>
     <Autodependency>true</Autodependency>
-    <ProjectCompNumb>41</ProjectCompNumb>
+    <ProjectCompNumb>51</ProjectCompNumb>
     <DelUnusedPreviouslyGenFiles>true</DelUnusedPreviouslyGenFiles>
     <GeneratedCodeFrozen>false</GeneratedCodeFrozen>
     <AssignInitComponentNameToPrph>true</AssignInitComponentNameToPrph>
@@ -33660,7 +33660,7 @@
         <ItemSymbol>RxBufferExtDeclaration</ItemSymbol>
         <ReadOnly>false</ReadOnly>
         <UserReadOnly>false</UserReadOnly>
-        <Value>uint8_t myRxBuff[32]</Value>
+        <Value>uint8_t myRxBuff[16]</Value>
       </ItemState>
       <ItemState>
         <ItemSymbol>RxIntEnable</ItemSymbol>
@@ -33716,13 +33716,13 @@
         <ItemSymbol>TxBuffer</ItemSymbol>
         <ReadOnly>false</ReadOnly>
         <UserReadOnly>false</UserReadOnly>
-        <Value />
+        <Value>myTxBuff</Value>
       </ItemState>
       <ItemState>
         <ItemSymbol>TxBufferExtDeclaration</ItemSymbol>
         <ReadOnly>false</ReadOnly>
         <UserReadOnly>false</UserReadOnly>
-        <Value />
+        <Value>uint8_t myTxBuff[16]</Value>
       </ItemState>
       <ItemState>
         <ItemSymbol>InterrupsHiddenItem</ItemSymbol>

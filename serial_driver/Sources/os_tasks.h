@@ -49,18 +49,20 @@ extern "C" {
 
 #include <message.h>
 
-#define RX_MSG_QUEUE_SIZE 10
+#define RX_MSG_QUEUE_SIZE 16
+#define TX_MSG_QUEUE_SIZE 16
 
 #define RX_MSG_QUEUE 8
 #define TX_MSG_QUEUE 9
 
-typedef struct serial_rx_msg
+typedef struct serial_char_message
 {
 	MESSAGE_HEADER_STRUCT HEADER;
 	unsigned char data;
-} SERIAL_RX_MSG, * SERIAL_RX_MSG_PTR;
+} SERIAL_CHAR_MSG, * SERIAL_CHAR_MSG_PTR;
 
 extern _pool_id rx_message_pool;
+extern _pool_id tx_message_pool;
 
 /*
 ** ===================================================================

@@ -7,7 +7,7 @@
 **     Version     : Component 1.3.0, Driver 01.00, CPU db: 3.00.000
 **     Repository  : KSDK 1.3.0
 **     Compiler    : GNU C Compiler
-**     Date/Time   : 2016-02-17, 16:00, # CodeGen: 0
+**     Date/Time   : 2016-02-19, 17:33, # CodeGen: 3
 **     Contents    :
 **         UART_DRV_Init                - uart_status_t UART_DRV_Init(uint32_t instance,uart_state_t *...
 **         UART_DRV_Deinit              - uart_status_t UART_DRV_Deinit(uint32_t instance);
@@ -77,7 +77,7 @@
 /*! Driver state structure without DMA */
 extern uart_state_t myUART_State;
 /*! External declaration of Rx buffer */
-uint8_t myRxBuff[32];
+uint8_t myRxBuff[16];
     
 /*! Interrupt service routine (ISR) prototype */    
 void myUART_IRQHandler(void);    
