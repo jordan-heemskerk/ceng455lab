@@ -42,6 +42,7 @@
 #include "SerialTask.h"
 #include "myUART.h"
 #include "Handler.h"
+#include "UserTask.h"
 
 #ifdef __cplusplus
 extern "C" {

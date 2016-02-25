@@ -47,6 +47,7 @@ char line_buffer[LINE_BUFFER_SIZE];
 unsigned int line_buffer_offset = 0;
 
 /* User includes (#include below this line is not maintained by Processor Expert) */
+#include "SerialAPI.h"
 
 void start_serial_task() {
 	// create a new serial task
@@ -108,7 +109,7 @@ void serial_task(os_task_param_t task_init_data)
 #endif    
 }
 
-void queue_tx_char(unsigned char recv_char) {
+void queue_char(unsigned char recv_char, _queue_id qid) {
 	  SERIAL_CHAR_MSG_PTR tx_msg_ptr;
 	  bool result;
 
@@ -119,7 +120,7 @@ void queue_tx_char(unsigned char recv_char) {
 		  _task_block();
 	  }
 
-	  tx_msg_ptr->HEADER.TARGET_QID = _msgq_get_id(0, TX_MSG_QUEUE);
+	  tx_msg_ptr->HEADER.TARGET_QID = _msgq_get_id(0, qid);
 	  tx_msg_ptr->HEADER.SIZE = sizeof(SERIAL_CHAR_MSG);
 	  tx_msg_ptr->data = recv_char;
 
@@ -131,10 +132,18 @@ void queue_tx_char(unsigned char recv_char) {
 	  }
 }
 
+void queue_tx_char(unsigned char recv_char) {
+	queue_char(recv_char, TX_MSG_QUEUE);
+}
+
 void queue_tx_str(unsigned char* str, uint16_t len) {
+	queue_str(str, len, TX_MSG_QUEUE);
+}
+
+void queue_str(unsigned char* str, uint16_t len, _queue_id qid) {
 	int i;
 	for (i = 0; i < len; i++) {
-		queue_tx_char(str[i]);
+		queue_char(str[i], qid);
 	}
 }
 
@@ -191,7 +200,7 @@ void handler_task(os_task_param_t task_init_data)
 
 	  /* setup a system message queue for outgoing chars for serial tx ISR */
 
-
+	  SerialAPI_init();
 	  result = _msgpool_create_system(sizeof(SERIAL_CHAR_MSG), TX_MSG_QUEUE_SIZE, 0, 0);
 
 	  if (!result) {
@@ -213,6 +222,9 @@ void handler_task(os_task_param_t task_init_data)
 		  printf("\n Could not create the rx_message_pool\n");
 		  _task_block();
 	  }
+
+	  _task_create(0, USERTASK_TASK, 0);
+	  _task_create(0, USERTASK_TASK, 0);
 
 	  while (TRUE) {
 		  rx_msg_ptr = _msgq_receive(serial_rx_qid, 0);
@@ -340,7 +352,7 @@ void handler_task(os_task_param_t task_init_data)
 		  }
 
 		  // ctrl-l pressed
-		  if (recv_char == 12){
+		  if (recv_char == 12 || recv_char == 21){
 
 			  unsigned int chars_to_del = line_buffer_offset;
 
@@ -393,6 +405,43 @@ void handler_task(os_task_param_t task_init_data)
    
 
 
+    
+#ifdef PEX_USE_RTOS   
+  }
+#endif    
+}
+
+/*
+** ===================================================================
+**     Callback    : UserTask_task
+**     Description : Task function entry.
+**     Parameters  :
+**       task_init_data - OS task parameter
+**     Returns : Nothing
+** ===================================================================
+*/
+void UserTask_task(os_task_param_t task_init_data)
+{
+  /* Write your local variable definition here */
+  
+#ifdef PEX_USE_RTOS
+  while (1) {
+#endif
+    /* Write your code here ... */
+    
+	  _queue_id qid = OpenW();
+
+	  char test_str[5];
+	  sprintf(test_str, "Test");
+	  _putline(qid, test_str);
+	  Close();
+
+
+    
+    OSA_TimeDelay(4000);                 /* Example code (for task release) */
+   
+    
+    
     
 #ifdef PEX_USE_RTOS   
   }
