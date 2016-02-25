@@ -436,6 +436,9 @@ void UserTask_task(os_task_param_t task_init_data)
 	  _putline(qid, test_str);
 	  Close();
 
+	  OpenR(6);
+	  Close();
+
 
     
     OSA_TimeDelay(4000);                 /* Example code (for task release) */

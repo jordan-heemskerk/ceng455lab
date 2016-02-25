@@ -9,11 +9,19 @@ _task_id _write_task = 0;
 MUTEX_ATTR_STRUCT _write_task_m_attr;
 MUTEX_STRUCT _write_task_m;
 
+#define MAX_R_TASKS 16
+_task_id _read_tasks[MAX_R_TASKS];
+_queue_id _read_tasks_qid[MAX_R_TASKS];
+unsigned int _read_tasks_idx = 0;
+MUTEX_ATTR_STRUCT _read_task_m_attr;
+MUTEX_STRUCT _read_task_m;
+
 void SerialAPI_init() {
 	_mutatr_init(&_write_task_m_attr);
 	_mutex_init(&_write_task_m, &_write_task_m_attr);
 
-
+	_mutatr_init(&_read_task_m_attr);
+	_mutex_init(&_read_task_m, &_read_task_m_attr);
 }
 
 _queue_id OpenW() {
@@ -28,10 +36,36 @@ _queue_id OpenW() {
 	return TX_MSG_QUEUE;
 }
 
+bool OpenR(uint16_t stream_no) {
+
+	_task_id my_id = _task_get_id();
+
+	if (_read_tasks_idx == MAX_R_TASKS) {
+		printf("Max read tasks! \n");
+		_task_block();
+	}
+
+	_mutex_lock(&_read_task_m);
+	int i;
+	for (i = 0; i < _read_tasks_idx; i++) {
+
+		if (_read_tasks[i] == my_id) {
+			_mutex_unlock(&_read_task_m);
+			return false;
+		}
+
+	}
+	_read_tasks[_read_tasks_idx] = my_id;
+	_read_tasks_qid[_read_tasks_idx] = stream_no;
+	_read_tasks_idx++;
+	_mutex_unlock(&_read_task_m);
+	return true;
+
+
+}
 
 bool _putline(_queue_id qid, char* str) {
 	if (_write_task == _task_get_id()) {
-
 
 		char buffer[PUT_BUFFER_SIZE];
 
@@ -62,6 +96,35 @@ bool Close() {
 	_mutex_unlock(&_write_task_m);
 
 	//TODO clear R
+	_mutex_lock(&_read_task_m);
+	int idx = -1;
+	int i;
+	for (i = 0; i < _read_tasks_idx; i++) {
+
+		if (_read_tasks[i] == my_id) {
+			idx = i;
+			break;
+		}
+
+	}
+
+	if (idx == -1)  {
+		_mutex_unlock(&_read_task_m);
+		return false;
+	}
+
+	_read_tasks[idx] = 0;
+	_read_tasks_qid[idx] = 0;
+
+	for (; idx < _read_tasks_idx-1; idx++) {
+		// shift until last index empty
+		_read_tasks[idx] = _read_tasks[idx+1];
+		_read_tasks_qid[idx] = _read_tasks_qid[idx+1];
+	}
+
+	_read_tasks_idx--;
+
+	_mutex_unlock(&_read_task_m);
 }
 
 
