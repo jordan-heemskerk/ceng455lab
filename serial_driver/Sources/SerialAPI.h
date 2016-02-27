@@ -12,6 +12,7 @@ MUTEX_STRUCT _write_task_m;
 #define MAX_R_TASKS 16
 _task_id _read_tasks[MAX_R_TASKS];
 _queue_id _read_tasks_qid[MAX_R_TASKS];
+char* _getline_addr[MAX_R_TASKS];
 unsigned int _read_tasks_idx = 0;
 MUTEX_ATTR_STRUCT _read_task_m_attr;
 MUTEX_STRUCT _read_task_m;
@@ -22,6 +23,8 @@ void SerialAPI_init() {
 
 	_mutatr_init(&_read_task_m_attr);
 	_mutex_init(&_read_task_m, &_read_task_m_attr);
+
+	memset(_getline_addr, NULL, sizeof(char*) * MAX_R_TASKS);
 }
 
 _queue_id OpenW() {
@@ -29,7 +32,7 @@ _queue_id OpenW() {
 	if (_write_task != 0) {
 		return 0;
 	} else {
-		printf("Grant W to %d\n", _task_get_id());
+		//printf("Grant W to %d\n", _task_get_id());
 		_write_task = _task_get_id();
 	}
 	_mutex_unlock(&_write_task_m);
@@ -64,6 +67,23 @@ bool OpenR(uint16_t stream_no) {
 
 }
 
+bool _getline(char * str) {
+	_task_id my_id = _task_get_id();
+	int i, idx;
+	idx = -1;
+	for (i = 0; i < _read_tasks_idx; i++) {
+		if (_read_tasks[i] == my_id) {
+			idx = i;
+		}
+	}
+	if (idx < 0) return FALSE;
+
+	_getline_addr[idx] = str;
+	_task_block();
+	_getline_addr[idx] = NULL;
+
+}
+
 bool _putline(_queue_id qid, char* str) {
 	if (_write_task == _task_get_id()) {
 
@@ -79,7 +99,7 @@ bool _putline(_queue_id qid, char* str) {
 		buffer[strlen(str)] = '\n';
 		buffer[strlen(str)+1] = '\r';
 		buffer[strlen(str)+2] = '\0';
-		printf("buffer is: %s\n", buffer);
+		//printf("buffer is: %s\n", buffer);
 		queue_str(buffer, strlen(str)+2, qid);
 	}
 }
@@ -90,7 +110,7 @@ bool Close() {
 	// clear W
 	_mutex_lock(&_write_task_m);
 	if (_write_task == my_id) {
-		printf("Revoke W to %d\n", _task_get_id());
+		//printf("Revoke W to %d\n", _task_get_id());
 		_write_task = 0;
 	}
 	_mutex_unlock(&_write_task_m);

@@ -62,7 +62,7 @@ int main(void)
   /* Write your code here */
   /* For example: for(;;) { } */
 
-  /*** Don't write any code pass this line, or it will be deleted during code generation. ***/
+  /*** Don't write any code pass this line, or it will be deleted during code gen8eration. ***/
   /*** RTOS startup code. Macro PEX_RTOS_START is defined by the RTOS component. DON'T MODIFY THIS CODE!!! ***/
   #ifdef PEX_RTOS_START
     PEX_RTOS_START();                  /* Startup of the selected RTOS. Macro is defined by the RTOS component. */

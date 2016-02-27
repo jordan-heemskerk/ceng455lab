@@ -42,7 +42,7 @@ _pool_id tx_message_pool;
 _queue_id serial_tx_qid = 0;
 
 #define LINE_BUFFER_SIZE 128
-
+#define USER_TASKS 5
 char line_buffer[LINE_BUFFER_SIZE];
 unsigned int line_buffer_offset = 0;
 
@@ -223,8 +223,10 @@ void handler_task(os_task_param_t task_init_data)
 		  _task_block();
 	  }
 
-	  _task_create(0, USERTASK_TASK, 0);
-	  _task_create(0, USERTASK_TASK, 0);
+	  int j;
+	  for (j = 1; j < USER_TASKS+1; j++) {
+		  _task_create(0, USERTASK_TASK, j);
+	  }
 
 	  while (TRUE) {
 		  rx_msg_ptr = _msgq_receive(serial_rx_qid, 0);
@@ -278,8 +280,17 @@ void handler_task(os_task_param_t task_init_data)
 			  //debug: printf("ENTER PRESSED (CR)\n");
 
 			  //HANDLE _getLine stuff here
+			  int i;
+			  for (i = 0; i < _read_tasks_idx; i++) {
+				  if (_getline_addr[i] != NULL) {
+					  sprintf(_getline_addr[i], "%s", line_buffer);
+					  TD_STRUCT_PTR td_ptr = _task_get_td(_read_tasks[i]);
+					  _task_ready(td_ptr);
+				  }
+			  }
 
-			  printf("%s \n", line_buffer);
+			  //debug
+			  //printf("%s \n", line_buffer);
 
 			  queue_tx_char(10); // send line feed, ie go to next line
 
@@ -429,19 +440,30 @@ void UserTask_task(os_task_param_t task_init_data)
 #endif
     /* Write your code here ... */
     
-	  _queue_id qid = OpenW();
 
-	  char test_str[5];
-	  sprintf(test_str, "Test");
-	  _putline(qid, test_str);
-	  Close();
+	  unsigned int user_task_id = (unsigned int)task_init_data;
 
+	  bool echoer = (user_task_id == 2);
+	  _queue_id qid;
 	  OpenR(6);
-	  Close();
+	  if (echoer)qid = OpenW();
+	  char test[128];
+	  while (TRUE) {
 
+		  memset(test, '\0', 128);
+		  _getline(&test);
+		  printf("User Task %d received: %s\n", user_task_id, test);
+
+		  if (test[0] == '~' && echoer) {
+			  char echo[160];
+			  sprintf(echo, "User Task %d echos: %s\n", user_task_id, test);
+			  _putline(qid, echo);
+		  }
+
+	  }
 
     
-    OSA_TimeDelay(4000);                 /* Example code (for task release) */
+    OSA_TimeDelay(10);                 /* Example code (for task release) */
    
     
     
