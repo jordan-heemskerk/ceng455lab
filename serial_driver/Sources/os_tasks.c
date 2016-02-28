@@ -196,6 +196,7 @@ void handler_task(os_task_param_t task_init_data)
 	  bool result;
 	  _task_id task_id;
 
+	  // Do initialization
 	  printf("Handler Task Created\n\r");
 
 	  /* setup a system message queue for outgoing chars for serial tx ISR */
@@ -223,12 +224,17 @@ void handler_task(os_task_param_t task_init_data)
 		  _task_block();
 	  }
 
+	  // create user tasks
 	  int j;
 	  for (j = 1; j < USER_TASKS+1; j++) {
 		  _task_create(0, USERTASK_TASK, j);
 	  }
 
+
+	  // Main loop
 	  while (TRUE) {
+
+		  // get a new char
 		  rx_msg_ptr = _msgq_receive(serial_rx_qid, 0);
 
 		  if (rx_msg_ptr == NULL) {
@@ -250,8 +256,6 @@ void handler_task(os_task_param_t task_init_data)
 
 		  if (recv_char == 8) {
 			  // backspace or ctrl-h
-
-			  // serial
 
 			  // go back 1 position
 			  queue_tx_char(0x1B);
@@ -277,9 +281,9 @@ void handler_task(os_task_param_t task_init_data)
 
 		  if (recv_char == 13) {
 
-			  //debug: printf("ENTER PRESSED (CR)\n");
+			  //Return (enter pressed)
 
-			  //HANDLE _getLine stuff here
+			  // Do stuff for getline
 			  int i;
 			  for (i = 0; i < _read_tasks_idx; i++) {
 				  if (_getline_addr[i] != NULL) {
@@ -308,20 +312,12 @@ void handler_task(os_task_param_t task_init_data)
 			  // go back in line buffer
 			  memset(line_buffer, 0, LINE_BUFFER_SIZE);
 			  line_buffer_offset = 0;
-
-
-
-
-		  }
-
-		  if (recv_char == 10) {
-			  printf("ENTER PRESSED (LF)\n");
 		  }
 
 		  // ctrl-w pressed
 		  if (recv_char == 23){
-			  unsigned
-			  int temp_line_buffer_offset = line_buffer_offset;
+
+			  unsigned int temp_line_buffer_offset = line_buffer_offset;
 			  while(TRUE){
 				  if(temp_line_buffer_offset == 0 || line_buffer[temp_line_buffer_offset] == ' '){
 					  break;
@@ -398,6 +394,7 @@ void handler_task(os_task_param_t task_init_data)
 			  line_buffer_offset = 0;
 		  }
 
+		  // handle printable character
 		  if (recv_char <= 127 && recv_char >= 32) { // check for printable character
 			  //serial
 			  queue_tx_char(recv_char);
@@ -405,10 +402,14 @@ void handler_task(os_task_param_t task_init_data)
 			  line_buffer_add_char(recv_char);
 		  }
 
-		  //start_serial_task();
 
-		  // echo back necessary characters
-		  /* open a message queue for recieving chars from serial rx ISR */
+		  // send char to queue of each user task
+		  int i;
+		  for (i = 0; i < _read_tasks_idx; i++) {
+			  _queue_id openr_qid = _read_tasks_qid[i];
+			  queue_char(recv_char, openr_qid);
+		  }
+
 	  }
 
     
@@ -443,23 +444,49 @@ void UserTask_task(os_task_param_t task_init_data)
 
 	  unsigned int user_task_id = (unsigned int)task_init_data;
 
+	  _queue_id ut_rx_qid = _msgq_open(USER_TASK_QUEUE_START + user_task_id, 0);
+
+	  if (ut_rx_qid == 0) {
+		  printf("Could not open the recv queue: %d\n", user_task_id);
+		  _task_block();
+	  }
+
+
 	  bool echoer = (user_task_id == 2);
 	  _queue_id qid;
-	  OpenR(6);
-	  if (echoer)qid = OpenW();
+	  OpenR(ut_rx_qid);
+	  if (echoer) qid = OpenW();
 	  char test[128];
+
+
 	  while (TRUE) {
 
+#if 1 // testing _putline and _getline
 		  memset(test, '\0', 128);
 		  _getline(&test);
 		  printf("User Task %d received: %s\n", user_task_id, test);
 
 		  if (test[0] == '~' && echoer) {
 			  char echo[160];
-			  sprintf(echo, "User Task %d echos: %s\n", user_task_id, test);
+			  sprintf(echo, "User Task %d echos: %s\n", user_task_id, test+1);
 			  _putline(qid, echo);
 		  }
+#endif
 
+#if 0 //testing char stream from OpenR
+		  SERIAL_CHAR_MSG_PTR ut_msg_ptr = _msgq_receive(ut_rx_qid, 0);
+
+		  if (ut_msg_ptr == NULL) {
+			  printf("\n Receiving message failed\n");
+			  _task_block();
+		  }
+
+
+		  // Receive new char
+		  unsigned char recv_char;
+		  recv_char = ut_msg_ptr->data;
+		  printf("User Task %d char stream: %c\n", user_task_id, recv_char);
+#endif
 	  }
 
     

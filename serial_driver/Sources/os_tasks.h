@@ -56,6 +56,8 @@ extern "C" {
 #define RX_MSG_QUEUE 8
 #define TX_MSG_QUEUE 9
 
+#define USER_TASK_QUEUE_START 10
+
 typedef struct serial_char_message
 {
 	MESSAGE_HEADER_STRUCT HEADER;

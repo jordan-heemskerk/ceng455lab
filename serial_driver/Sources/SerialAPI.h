@@ -115,7 +115,7 @@ bool Close() {
 	}
 	_mutex_unlock(&_write_task_m);
 
-	//TODO clear R
+	// clear R
 	_mutex_lock(&_read_task_m);
 	int idx = -1;
 	int i;
