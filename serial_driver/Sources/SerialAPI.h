@@ -81,6 +81,7 @@ bool _getline(char * str) {
 	_getline_addr[idx] = str;
 	_task_block();
 	_getline_addr[idx] = NULL;
+	return true;
 
 }
 
@@ -91,7 +92,7 @@ bool _putline(_queue_id qid, char* str) {
 
 		if (strlen(str)+2 > PUT_BUFFER_SIZE) {
 			printf("_putline: buffer not big enough\n");
-			_task_block();
+			return FALSE;
 		}
 
 		memset(buffer, 0, PUT_BUFFER_SIZE);
@@ -101,10 +102,13 @@ bool _putline(_queue_id qid, char* str) {
 		buffer[strlen(str)+2] = '\0';
 		//printf("buffer is: %s\n", buffer);
 		queue_str(buffer, strlen(str)+2, qid);
+		return TRUE;
 	}
+	return FALSE;
 }
 
 bool Close() {
+	bool success = FALSE;
 	_task_id my_id = _task_get_id();
 
 	// clear W
@@ -112,6 +116,7 @@ bool Close() {
 	if (_write_task == my_id) {
 		//printf("Revoke W to %d\n", _task_get_id());
 		_write_task = 0;
+		success = TRUE;
 	}
 	_mutex_unlock(&_write_task_m);
 
@@ -128,23 +133,22 @@ bool Close() {
 
 	}
 
-	if (idx == -1)  {
-		_mutex_unlock(&_read_task_m);
-		return false;
+	if (idx > -1) {
+		_read_tasks[idx] = 0;
+		_read_tasks_qid[idx] = 0;
+
+		for (; idx < _read_tasks_idx-1; idx++) {
+			// shift until last index empty
+			_read_tasks[idx] = _read_tasks[idx+1];
+			_read_tasks_qid[idx] = _read_tasks_qid[idx+1];
+		}
+
+		_read_tasks_idx--;
+		success = TRUE;
 	}
-
-	_read_tasks[idx] = 0;
-	_read_tasks_qid[idx] = 0;
-
-	for (; idx < _read_tasks_idx-1; idx++) {
-		// shift until last index empty
-		_read_tasks[idx] = _read_tasks[idx+1];
-		_read_tasks_qid[idx] = _read_tasks_qid[idx+1];
-	}
-
-	_read_tasks_idx--;
-
 	_mutex_unlock(&_read_task_m);
+	return success;
+
 }
 
 

@@ -461,7 +461,7 @@ void UserTask_task(os_task_param_t task_init_data)
 
 	  while (TRUE) {
 
-#if 1 // testing _putline and _getline
+#if 0 // testing _putline and _getline
 		  memset(test, '\0', 128);
 		  _getline(&test);
 		  printf("User Task %d received: %s\n", user_task_id, test);
@@ -473,7 +473,7 @@ void UserTask_task(os_task_param_t task_init_data)
 		  }
 #endif
 
-#if 0 //testing char stream from OpenR
+#if 1 //testing char stream from OpenR
 		  SERIAL_CHAR_MSG_PTR ut_msg_ptr = _msgq_receive(ut_rx_qid, 0);
 
 		  if (ut_msg_ptr == NULL) {
