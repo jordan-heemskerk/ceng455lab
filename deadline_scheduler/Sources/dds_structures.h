@@ -15,6 +15,18 @@ typedef struct task_list_data {
 
 } task_list_data_t;
 
+typedef struct create_command_data {
+
+	uint32_t template_index;
+	uint32_t deadline;
+
+} create_command_data_t;
+
+typedef struct delete_command_data {
+
+	uint32_t tid;
+
+} delete_command_data_t;
 
 typedef struct task_list_entry {
 
@@ -154,5 +166,5 @@ task_list_summary_str(active_tasks, &test);
 printf("%s\n", test);
 
  * ***/
- */
+
 #endif

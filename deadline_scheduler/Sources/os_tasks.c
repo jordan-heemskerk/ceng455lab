@@ -21,11 +21,11 @@
 ** @brief
 **         This is user's event module.
 **         Put your event handler code here.
-*/         
+*/
 /*!
 **  @addtogroup os_tasks_module os_tasks module documentation
 **  @{
-*/         
+*/
 /* MODULE os_tasks */
 
 #include "Cpu.h"
@@ -35,10 +35,12 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif 
+#endif
 
 _pool_id rx_message_pool;
 _pool_id tx_message_pool;
+_pool_id dds_message_pool;
+
 _queue_id serial_tx_qid = 0;
 
 #define LINE_BUFFER_SIZE 128
@@ -98,16 +100,16 @@ void serial_task(os_task_param_t task_init_data)
   while (1) {
 #endif
     /* Write your code here ... */
-    
-    
+
+
     OSA_TimeDelay(10);                 /* Example code (for task release) */
-   
-    
-    
-    
-#ifdef PEX_USE_RTOS   
+
+
+
+
+#ifdef PEX_USE_RTOS
   }
-#endif    
+#endif
 }
 
 void queue_char(unsigned char recv_char, _queue_id qid) {
@@ -413,15 +415,15 @@ void handler_task(os_task_param_t task_init_data)
 
 	  }
 
-    
+
     OSA_TimeDelay(10);                 /* Example code (for task release) */
-   
 
 
-    
-#ifdef PEX_USE_RTOS   
+
+
+#ifdef PEX_USE_RTOS
   }
-#endif    
+#endif
 }
 
 /*
@@ -436,12 +438,12 @@ void handler_task(os_task_param_t task_init_data)
 void UserTask_task(os_task_param_t task_init_data)
 {
   /* Write your local variable definition here */
-  
+
 #ifdef PEX_USE_RTOS
   while (1) {
 #endif
     /* Write your code here ... */
-    
+
 
 	  unsigned int user_task_id = (unsigned int)task_init_data;
 
@@ -490,15 +492,15 @@ void UserTask_task(os_task_param_t task_init_data)
 #endif
 	  }
 
-    
+
     OSA_TimeDelay(10);                 /* Example code (for task release) */
-   
-    
-    
-    
-#ifdef PEX_USE_RTOS   
+
+
+
+
+#ifdef PEX_USE_RTOS
   }
-#endif    
+#endif
 }
 
 /*
@@ -513,21 +515,21 @@ void UserTask_task(os_task_param_t task_init_data)
 void MonitorTask_task(os_task_param_t task_init_data)
 {
   /* Write your local variable definition here */
-  
+
 #ifdef PEX_USE_RTOS
   while (1) {
 #endif
     /* Write your code here ... */
-    
-    
+
+
     OSA_TimeDelay(10);                 /* Example code (for task release) */
-   
-    
-    
-    
-#ifdef PEX_USE_RTOS   
+
+
+
+
+#ifdef PEX_USE_RTOS
   }
-#endif    
+#endif
 }
 
 //TIMER FUNCTION HERE
@@ -544,39 +546,92 @@ void MonitorTask_task(os_task_param_t task_init_data)
 */
 void DdsTask_task(os_task_param_t task_init_data)
 {
-  /* Write your local variable definition here */
-  
+	DDS_TASK_MSG_PTR dds_msg_ptr;
+
+	//Create message queue for incoming messages from AuxTask_task
+	_queue_id dds_task_qid;
+	dds_task_qid = _msgq_open(DDS_MSG_QUEUE, 0);
+
+	if (dds_task_qid == 0) {
+		printf("Could not open the dds task queue\n");
+		_task_block();
+	}
+
+	_msgpool_create_system(sizeof(DDS_TASK_MSG), DDS_MSG_QUEUE_SIZE, 0, 0);
+
+	/*
+	if (dds_message_pool == MSGPOOL_NULL_POOL_ID) {
+		printf("\n Could not create the dds_message_pool\n");
+		_task_block();
+	}*/
+
+	  TD_STRUCT_PTR td_ptr = _task_get_td(_task_get_id_from_name(AUXTASK_TASK_NAME));
+	  _task_ready(td_ptr);
 
 	//Do forever
+	while (TRUE){
 		//Block while waiting to recieve a message from the message queue
+		  dds_msg_ptr = _msgq_receive(dds_task_qid, 0);
 
-		// Act accordingly to the type of message
-			// Create
-			// Delete
-			// Return active (information request)
-			// Return overdue (information request)
+		  if (dds_msg_ptr == NULL) {
+			  printf("\n Receiving message failed\n");
+			  _task_block();
+		  }
 
 
+			// Act accordingly to the type of message
+				// Create
+				// Delete
+				// Return active (information request)
+				// Return overdue (information request)
+		  switch(dds_msg_ptr->dds_command) {
+		  	  case DDS_CREATE: ;
+		  		  create_command_data_t* command_data = (create_command_data_t *)dds_msg_ptr->data;
+		  		  printf("deadline: %d, template_index: %d \n", command_data->deadline, command_data->template_index);
+		  		  // insert into active tasks
+
+		  		  break;
+		  	  case DDS_DELETE: ;
+		  		  delete_command_data_t* command_data2 = (delete_command_data_t *) dds_msg_ptr->data;
+		  		  printf("tid: %d \n", command_data2->tid);
+
+		  		  // remove from active tasks
+		  		  break;
+		  	  case DDS_RETURN_ACTIVE_LIST:
+		  		  //TODO
+		  		  break;
+		  	  case DDS_RETURN_OVERDUE_LIST:
+		  		  //TODO
+		  		  break;
+		  }
+
+
+		  //TODO:
 		// Look at all tasks in active pool
 		// Select the task with the shortest deadline
 		// Set a timer for the deadline
 		// Run that task
+	}
+
+
+
+
 
 
 #ifdef PEX_USE_RTOS
   while (1) {
 #endif
     /* Write your code here ... */
-    
-    
+
+
     OSA_TimeDelay(10);                 /* Example code (for task release) */
-   
-    
-    
-    
-#ifdef PEX_USE_RTOS   
+
+
+
+
+#ifdef PEX_USE_RTOS
   }
-#endif    
+#endif
 }
 
 /*
@@ -591,7 +646,6 @@ void DdsTask_task(os_task_param_t task_init_data)
 void AuxTask_task(os_task_param_t task_init_data)
 {
   /* Write your local variable definition here */
-  
 
 
 
@@ -600,23 +654,25 @@ void AuxTask_task(os_task_param_t task_init_data)
   while (1) {
 #endif
     /* Write your code here ... */
-    
-    
+
+
+
+
     OSA_TimeDelay(10);                 /* Example code (for task release) */
-   
-    
-    
-    
-#ifdef PEX_USE_RTOS   
+
+
+
+
+#ifdef PEX_USE_RTOS
   }
-#endif    
+#endif
 }
 
 /* END os_tasks */
 
 #ifdef __cplusplus
 }  /* extern "C" */
-#endif 
+#endif
 
 /*!
 ** @}

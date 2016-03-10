@@ -55,11 +55,20 @@ extern "C" {
 
 #define RX_MSG_QUEUE_SIZE 3*128
 #define TX_MSG_QUEUE_SIZE 1024
+#define DDS_MSG_QUEUE_SIZE 1024
 
+#define DDS_MSG_QUEUE 7
 #define RX_MSG_QUEUE 8
 #define TX_MSG_QUEUE 9
 
 #define USER_TASK_QUEUE_START 10
+
+typedef enum dds_command{
+	DDS_CREATE,
+	DDS_DELETE,
+	DDS_RETURN_ACTIVE_LIST,
+	DDS_RETURN_OVERDUE_LIST
+}dds_command_e;
 
 typedef struct serial_char_message
 {
@@ -67,8 +76,16 @@ typedef struct serial_char_message
 	unsigned char data;
 } SERIAL_CHAR_MSG, * SERIAL_CHAR_MSG_PTR;
 
+typedef struct dds_task_message
+{
+	MESSAGE_HEADER_STRUCT HEADER;
+	dds_command_e dds_command;
+	void *data;
+} DDS_TASK_MSG, * DDS_TASK_MSG_PTR;
+
 extern _pool_id rx_message_pool;
 extern _pool_id tx_message_pool;
+extern _pool_id dds_message_pool;
 
 /*
 ** ===================================================================
