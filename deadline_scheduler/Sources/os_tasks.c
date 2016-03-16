@@ -51,6 +51,7 @@ unsigned int line_buffer_offset = 0;
 /* User includes (#include below this line is not maintained by Processor Expert) */
 #include "SerialAPI.h"
 #include "dds_structures.h"
+#include "dds_functions.h"
 
 void start_serial_task() {
 	// create a new serial task
@@ -426,6 +427,8 @@ void handler_task(os_task_param_t task_init_data)
 #endif
 }
 
+
+uint32_t task_counter = 0;
 /*
 ** ===================================================================
 **     Callback    : UserTask_task
@@ -438,69 +441,31 @@ void handler_task(os_task_param_t task_init_data)
 void UserTask_task(os_task_param_t task_init_data)
 {
   /* Write your local variable definition here */
+	//TODO print tid
 
-#ifdef PEX_USE_RTOS
-  while (1) {
-#endif
-    /* Write your code here ... */
-
-
-	  unsigned int user_task_id = (unsigned int)task_init_data;
-
-	  _queue_id ut_rx_qid = _msgq_open(USER_TASK_QUEUE_START + user_task_id, 0);
-
-	  if (ut_rx_qid == 0) {
-		  printf("Could not open the recv queue: %d\n", user_task_id);
-		  _task_block();
-	  }
-
-
-	  bool echoer = (user_task_id == 2);
-	  _queue_id qid;
-	  OpenR(ut_rx_qid);
-	  if (echoer) qid = OpenW();
-	  char test[128];
-
-
-	  while (TRUE) {
-
-#if 0 // testing _putline and _getline
-		  memset(test, '\0', 128);
-		  _getline(&test);
-		  printf("User Task %d received: %s\n", user_task_id, test);
-
-		  if (test[0] == '~' && echoer) {
-			  char echo[160];
-			  sprintf(echo, "User Task %d echos: %s\n", user_task_id, test+1);
-			  _putline(qid, echo);
-		  }
-#endif
-
-#if 1 //testing char stream from OpenR
-		  SERIAL_CHAR_MSG_PTR ut_msg_ptr = _msgq_receive(ut_rx_qid, 0);
-
-		  if (ut_msg_ptr == NULL) {
-			  printf("\n Receiving message failed\n");
-			  _task_block();
-		  }
-
-
-		  // Receive new char
-		  unsigned char recv_char;
-		  recv_char = ut_msg_ptr->data;
-		  printf("User Task %d char stream: %c\n", user_task_id, recv_char);
-#endif
-	  }
-
-
-    OSA_TimeDelay(10);                 /* Example code (for task release) */
+	uint32_t time_left = (uint32_t)task_init_data;
 
 
 
+	TIME_STRUCT time_ptr;
+	time_ptr.SECONDS = time_left/1000;
+	time_ptr.MILLISECONDS = time_left - time_ptr.SECONDS*1000;
 
-#ifdef PEX_USE_RTOS
-  }
-#endif
+	MQX_TICK_STRUCT tick_time_ptr;
+
+	_time_to_ticks(&time_ptr, &tick_time_ptr);
+	uint32_t ticks_left = tick_time_ptr.TICKS[0] * _time_get_hwticks_per_tick()/10;
+
+
+	uint32_t my_task = task_counter;
+	task_counter++;
+	printf("Task %d: Running a task for %d milliseconds\n", my_task, (uint32_t)task_init_data);
+
+	// run stuff
+	while (ticks_left > 0) ticks_left--;
+
+	printf("Task %d: Finished\n", my_task);
+
 }
 
 /*
@@ -557,17 +522,23 @@ void DdsTask_task(os_task_param_t task_init_data)
 		_task_block();
 	}
 
-	_msgpool_create_system(sizeof(DDS_TASK_MSG), DDS_MSG_QUEUE_SIZE, 0, 0);
-
 	/*
 	if (dds_message_pool == MSGPOOL_NULL_POOL_ID) {
 		printf("\n Could not create the dds_message_pool\n");
 		_task_block();
 	}*/
 
-	  TD_STRUCT_PTR td_ptr = _task_get_td(_task_get_id_from_name(AUXTASK_TASK_NAME));
-	  _task_ready(td_ptr);
+	TD_STRUCT_PTR td_ptr = _task_get_td(_task_get_id_from_name(AUXTASK_TASK_NAME));
+	_task_ready(td_ptr);
 
+	TIME_STRUCT s_time;
+	_time_get(&s_time);
+	uint32_t start_time = s_time.SECONDS*1000 + s_time.MILLISECONDS;
+
+	_msgpool_create_system(sizeof(DDS_TASK_MSG), DDS_MSG_QUEUE_SIZE, 0, 0);
+
+	// create AUX task
+	_task_create(0, AUXTASK_TASK, 0);
 	//Do forever
 	while (TRUE){
 		//Block while waiting to recieve a message from the message queue
@@ -587,14 +558,44 @@ void DdsTask_task(os_task_param_t task_init_data)
 		  switch(dds_msg_ptr->dds_command) {
 		  	  case DDS_CREATE: ;
 		  		  create_command_data_t* command_data = (create_command_data_t *)dds_msg_ptr->data;
-		  		  printf("deadline: %d, template_index: %d \n", command_data->deadline, command_data->template_index);
+		  		  //printf("deadline: %d, template_index: %d \n", command_data->deadline, command_data->template_index);
 		  		  // insert into active tasks
+		  		  task_list_data_t* new_task = _mem_alloc_system(sizeof(task_list_data_t));
+		  		  new_task->deadline = command_data->deadline;
+
+		  		  _task_id tid = _task_create(0, command_data->template_index, command_data->runtime);
+		  		  new_task->tid = tid;
+
+		  		  TIME_STRUCT current_time;
+		  		  _time_get(&current_time);
+		  		  new_task->creation_time = (current_time.SECONDS*1000 + current_time.MILLISECONDS) - start_time;
+		  		  new_task->task_type = command_data->task_type;
+		  		  add_task_list_entry(&active_tasks, new_task);
+
+
+
+		  		  DDS_RESP_MSG_PTR resp_msg_ptr;
+		  		  resp_msg_ptr = (DDS_RESP_MSG_PTR)_msg_alloc_system(dds_message_pool);
+		  		  resp_msg_ptr->HEADER.TARGET_QID = dds_msg_ptr->HEADER.SOURCE_QID;
+		  		  resp_msg_ptr->HEADER.SOURCE_QID = _msgq_get_id(0, DDS_MSG_QUEUE);
+		  		  resp_msg_ptr->HEADER.SIZE = sizeof(DDS_RESP_MSG);
+		  		  resp_msg_ptr->success = tid;
+
+		  		  bool result = _msgq_send(resp_msg_ptr);
+
+		  		  if (result != TRUE) {
+		  			  printf("\n Could not send resp message\n");
+		  			  _task_block();
+		  		  }
+
+
 
 		  		  break;
 		  	  case DDS_DELETE: ;
 		  		  delete_command_data_t* command_data2 = (delete_command_data_t *) dds_msg_ptr->data;
-		  		  printf("tid: %d \n", command_data2->tid);
-
+		  		  //printf("tid: %d \n", command_data2->tid);
+		  		  delete_task_list_entry(&active_tasks, command_data2->tid);
+		  		  _task_destroy(command_data2->tid);
 		  		  // remove from active tasks
 		  		  break;
 		  	  case DDS_RETURN_ACTIVE_LIST:
@@ -611,6 +612,45 @@ void DdsTask_task(os_task_param_t task_init_data)
 		// Select the task with the shortest deadline
 		// Set a timer for the deadline
 		// Run that task
+
+		_task_id tid_to_start;
+		uint32_t  shortest = 0xFFFFFFFF;
+		uint16_t buffer_offset = 0;
+		task_list_entry_t* pos = active_tasks;
+		while (pos != NULL) {
+
+			task_list_data_t* data = pos->data;
+
+			if (_task_get_td(data->tid) == NULL) {
+				// task doesn't exist in system anymore
+
+				pos = pos->next;
+				//remove from ll
+				delete_task_list_entry(&active_tasks, data->tid);
+				continue;
+
+			}
+
+
+			uint32_t this_abs_deadline = data->creation_time + data->deadline;
+
+			if (this_abs_deadline < shortest) {
+				tid_to_start = data->tid;
+				shortest = this_abs_deadline;
+			}
+
+
+			_mqx_uint old;
+			_task_set_priority(data->tid, (PRIORITY_OSA_TO_RTOS(WAITING_USER_TASK_PRIORITY)), &old);
+
+
+			pos = pos->next;
+		}
+
+		_mqx_uint old;
+		_task_set_priority(tid_to_start, (PRIORITY_OSA_TO_RTOS(ACTIVE_USER_TASK_PRIORITY)), &old);
+
+		// set a timer for the deadline that sends an "expired message"
 	}
 
 
@@ -649,18 +689,26 @@ void AuxTask_task(os_task_param_t task_init_data)
 
 
 
-
 #ifdef PEX_USE_RTOS
   while (1) {
 #endif
     /* Write your code here ... */
 
 
+	_task_id t1 = dd_tcreate(USERTASK_TASK, 3000, 10000, TASK_TYPE_APERIODIC);
+
+    OSA_TimeDelay(500);                 /* Example code (for task release) */
+
+    _task_id t2 = dd_tcreate(USERTASK_TASK, 3000, 2000, TASK_TYPE_APERIODIC);
 
 
-    OSA_TimeDelay(10);                 /* Example code (for task release) */
+
+    OSA_TimeDelay(500);
 
 
+    //dd_delete(t2);
+
+    OSA_TimeDelay(3500);
 
 
 #ifdef PEX_USE_RTOS

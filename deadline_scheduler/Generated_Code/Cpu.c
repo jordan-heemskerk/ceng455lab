@@ -8,7 +8,7 @@
 **     Repository  : KSDK 1.3.0
 **     Datasheet   : K64P144M120SF5RM, Rev.2, January 2014
 **     Compiler    : GNU C Compiler
-**     Date/Time   : 2016-03-09, 13:53, # CodeGen: 0
+**     Date/Time   : 2016-03-16, 11:32, # CodeGen: 1
 **     Abstract    :
 **
 **     Settings    :
@@ -121,9 +121,6 @@ void Components_Init(void)
   /*! Handler Auto initialization start */ 
   (void)Handler_Init();
   /*! Handler Auto initialization end */                       
-  /*! AuxTask Auto initialization start */ 
-  (void)AuxTask_Init();
-  /*! AuxTask Auto initialization end */                       
   /*! DdsTask Auto initialization start */ 
   (void)DdsTask_Init();
   /*! DdsTask Auto initialization end */                       

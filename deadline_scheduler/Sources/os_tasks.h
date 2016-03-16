@@ -57,11 +57,15 @@ extern "C" {
 #define TX_MSG_QUEUE_SIZE 1024
 #define DDS_MSG_QUEUE_SIZE 1024
 
-#define DDS_MSG_QUEUE 7
+
 #define RX_MSG_QUEUE 8
 #define TX_MSG_QUEUE 9
+#define DDS_MSG_QUEUE 10
 
-#define USER_TASK_QUEUE_START 10
+//#define USER_TASK_QUEUE_START 10
+
+#define ACTIVE_USER_TASK_PRIORITY 18U
+#define WAITING_USER_TASK_PRIORITY 19U
 
 typedef enum dds_command{
 	DDS_CREATE,
@@ -69,6 +73,11 @@ typedef enum dds_command{
 	DDS_RETURN_ACTIVE_LIST,
 	DDS_RETURN_OVERDUE_LIST
 }dds_command_e;
+
+typedef struct dds_response_message {
+	MESSAGE_HEADER_STRUCT HEADER;
+	_task_id success;
+} DDS_RESP_MSG, * DDS_RESP_MSG_PTR;
 
 typedef struct serial_char_message
 {

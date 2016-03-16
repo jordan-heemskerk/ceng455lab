@@ -15,10 +15,13 @@ typedef struct task_list_data {
 
 } task_list_data_t;
 
+
 typedef struct create_command_data {
 
 	uint32_t template_index;
 	uint32_t deadline;
+	uint32_t runtime;
+	task_type_e task_type;
 
 } create_command_data_t;
 
