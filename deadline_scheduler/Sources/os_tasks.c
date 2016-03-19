@@ -131,7 +131,7 @@ void queue_char(unsigned char recv_char, _queue_id qid) {
 	  result = _msgq_send(tx_msg_ptr);
 
 	  if (result != TRUE) {
-		  printf("\n Could not send tx message\n");
+		  printf("\n queue_char: Could not send tx message\n");
 		  _task_block();
 	  }
 }
@@ -185,7 +185,6 @@ void line_buffer_cursor_back () {
 void handler_task(os_task_param_t task_init_data)
 {
   /* Write your local variable definition here */
-   _task_block();
 #ifdef PEX_USE_RTOS
   while (1) {
 #endif
@@ -228,11 +227,6 @@ void handler_task(os_task_param_t task_init_data)
 		  _task_block();
 	  }
 
-	  // create user tasks
-	  int j;
-	  for (j = 1; j < USER_TASKS+1; j++) {
-		  _task_create(0, USERTASK_TASK, j);
-	  }
 
 
 	  // Main loop
@@ -407,12 +401,15 @@ void handler_task(os_task_param_t task_init_data)
 		  }
 
 
+		 //TODO MAKE ME WORK AGAIN
 		  // send char to queue of each user task
+		  /*
 		  int i;
 		  for (i = 0; i < _read_tasks_idx; i++) {
 			  _queue_id openr_qid = _read_tasks_qid[i];
 			  queue_char(recv_char, openr_qid);
 		  }
+		  */
 
 	  }
 
@@ -584,7 +581,7 @@ void DdsTask_task(os_task_param_t task_init_data)
 		  		  bool result = _msgq_send(resp_msg_ptr);
 
 		  		  if (result != TRUE) {
-		  			  printf("\n Could not send resp message\n");
+		  			  printf("\n Create: Could not send resp message\n");
 		  			  _task_block();
 		  		  }
 
@@ -596,6 +593,21 @@ void DdsTask_task(os_task_param_t task_init_data)
 		  		  //printf("tid: %d \n", command_data2->tid);
 		  		  delete_task_list_entry(&active_tasks, command_data2->tid);
 		  		  _task_destroy(command_data2->tid);
+
+		  		  DDS_RESP_MSG_PTR del_resp_msg_ptr;
+		  		  del_resp_msg_ptr = (DDS_RESP_MSG_PTR)_msg_alloc_system(dds_message_pool);
+		  		  del_resp_msg_ptr->HEADER.TARGET_QID = dds_msg_ptr->HEADER.SOURCE_QID;
+		  		  del_resp_msg_ptr->HEADER.SOURCE_QID = _msgq_get_id(0, DDS_MSG_QUEUE);
+		  		  del_resp_msg_ptr->HEADER.SIZE = sizeof(DDS_RESP_MSG);
+		  		  del_resp_msg_ptr->success = command_data2->tid;
+
+
+		  		  bool del_result = _msgq_send(del_resp_msg_ptr);
+
+		  		  if (del_result != TRUE) {
+		  			  printf("\n Delete: Could not send resp message\n");
+		  			  _task_block();
+		  		  }
 		  		  // remove from active tasks
 		  		  break;
 		  	  case DDS_RETURN_ACTIVE_LIST:
@@ -683,11 +695,14 @@ void DdsTask_task(os_task_param_t task_init_data)
 **     Returns : Nothing
 ** ===================================================================
 */
+#define AUXTASKQ 21
 void AuxTask_task(os_task_param_t task_init_data)
 {
   /* Write your local variable definition here */
 
-
+	 _queue_id rx_q = _msgq_open(AUXTASKQ, 0);
+	 OpenR(rx_q);
+	 _queue_id serial = OpenW();
 
 #ifdef PEX_USE_RTOS
   while (1) {
@@ -695,20 +710,70 @@ void AuxTask_task(os_task_param_t task_init_data)
     /* Write your code here ... */
 
 
-	_task_id t1 = dd_tcreate(USERTASK_TASK, 3000, 10000, TASK_TYPE_APERIODIC);
+/*	_task_id t1 = dd_tcreate(USERTASK_TASK, 3000, 1000, TASK_TYPE_APERIODIC);
 
-    OSA_TimeDelay(500);                 /* Example code (for task release) */
+    OSA_TimeDelay(500);                 /* Example code (for task release)
 
     _task_id t2 = dd_tcreate(USERTASK_TASK, 3000, 2000, TASK_TYPE_APERIODIC);
-
-
 
     OSA_TimeDelay(500);
 
 
-    //dd_delete(t2);
+    //printf("%d \n", dd_delete(t2));
 
-    OSA_TimeDelay(3500);
+    OSA_TimeDelay(3500);*/
+
+
+
+
+	char buffer[128];
+	memset(&buffer, 0, 128);
+
+	char resp[128];
+	memset(&resp, 0, 128);
+
+
+    if (!_getline(&buffer)) {
+    	printf("_getline failed\n");
+    	_task_block();
+    }
+
+    bool valid = false;
+
+    if (buffer[0] == '\0') {
+    	continue;
+    }
+
+    if (buffer[0] == 'A' || buffer[0] == 'a') {
+    	// start an aperiodic task
+
+    	char * toks  = strtok(&buffer[0], " "); // skip the A
+
+    	uint32_t deadline = 0;
+    	uint32_t runtime = 0;
+
+
+    	toks = strtok(NULL, " "); //store runtime
+    	runtime = atoi(toks);
+    	toks = strtok(NULL, " "); // store deadline
+    	deadline = atoi(toks);
+
+
+    	sprintf(resp, "Creating an aperiodic task (R = %d; D = %d)", runtime, deadline);
+    	_task_id t1 = dd_tcreate(USERTASK_TASK, deadline, runtime, TASK_TYPE_APERIODIC);
+    	valid = true;
+    }
+    if (buffer[0] == 'P' || buffer[0] == 'p') {
+    	printf("P!\n");
+    	valid = true;
+    }
+
+    if (!valid) {
+    	sprintf(resp, "Invalid command");
+    }
+
+	_putline(serial, resp);
+
 
 
 #ifdef PEX_USE_RTOS
