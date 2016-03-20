@@ -7,7 +7,7 @@
 **     Version     : Component 1.3.0, Driver 01.00, CPU db: 3.00.000
 **     Repository  : KSDK 1.3.0
 **     Compiler    : GNU C Compiler
-**     Date/Time   : 2016-03-09, 13:53, # CodeGen: 0
+**     Date/Time   : 2016-03-20, 11:39, # CodeGen: 8
 **     Contents    :
 **         Init - osa_status_t Handler_Init(void);
 **
@@ -64,7 +64,7 @@
 /* Handler task name */  
 #define HANDLER_TASK_NAME              "handler"
 /* Handler task stack size */  
-#define HANDLER_TASK_STACK_SIZE        1024U
+#define HANDLER_TASK_STACK_SIZE        2048U
 /* Handler task priority value */  
 #define HANDLER_TASK_PRIORITY          16U
 /*
