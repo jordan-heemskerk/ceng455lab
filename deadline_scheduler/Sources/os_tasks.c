@@ -569,6 +569,7 @@ void DdsTask_task(os_task_param_t task_init_data)
 				// Return overdue (information request)
 		  switch(dds_msg_ptr->dds_command) {
 		  	  case DDS_CREATE: ;
+		  	  {
 		  		  create_command_data_t* command_data = (create_command_data_t *)dds_msg_ptr->data;
 		  		  //printf("deadline: %d, template_index: %d \n", command_data->deadline, command_data->template_index);
 		  		  // insert into active tasks
@@ -601,31 +602,31 @@ void DdsTask_task(os_task_param_t task_init_data)
 		  		  }
 
 
-
+		  	  }
 		  		  break;
 		  	  case DDS_DELETE: ;
+		  	  {
 		  		  delete_command_data_t* command_data2 = (delete_command_data_t *) dds_msg_ptr->data;
 		  		  //printf("tid: %d \n", command_data2->tid);
 		  		  delete_task_list_entry(&active_tasks, command_data2->tid);
 		  		  _task_destroy(command_data2->tid);
 
-		  		/*  DDS_RESP_MSG_PTR del_resp_msg_ptr;
-		  		  del_resp_msg_ptr = (DDS_RESP_MSG_PTR)_msg_alloc(dds_response_pool);
-		  		  del_resp_msg_ptr->HEADER.TARGET_QID = dds_msg_ptr->HEADER.SOURCE_QID;
-		  		  del_resp_msg_ptr->HEADER.SOURCE_QID = _msgq_get_id(0, DDS_MSG_QUEUE);
-		  		  del_resp_msg_ptr->HEADER.SIZE = sizeof(DDS_RESP_MSG);
-		  		  del_resp_msg_ptr->success = command_data2->tid;
+		  		  DDS_RESP_MSG_PTR resp_msg_ptr;
+		  		  resp_msg_ptr = (DDS_RESP_MSG_PTR)_msg_alloc(dds_response_pool);
+		  		  resp_msg_ptr->HEADER.TARGET_QID = _msgq_get_id(0, DELETE_QUEUE);
+		  		  resp_msg_ptr->HEADER.SOURCE_QID = _msgq_get_id(0, DDS_MSG_QUEUE);
+		  		  resp_msg_ptr->HEADER.SIZE = sizeof(DDS_RESP_MSG);
+		  		  resp_msg_ptr->success = command_data2->tid;
 
+		  		  bool result = _msgq_send(resp_msg_ptr);
 
-		  		  bool del_result = _msgq_send(del_resp_msg_ptr);
-
-		  		  if (del_result != TRUE) {
-		  			  _mqx_uint error = _task_get_error();
-		  			  printf("\n Delete: Could not send resp message (error %d)\n", error);
+		  		  if (result != TRUE) {
+		  			  printf("\n DElete: Could not send resp message (%x)\n", _task_get_error());
 		  			  _task_block();
-		  		  }*/
+		  		  }
 		  		  // remove from active tasks
 		  		  break;
+		  	  }
 		  	  case DDS_RETURN_ACTIVE_LIST:
 		  		  //TODO
 		  		  break;
@@ -743,6 +744,7 @@ void AuxTask_task(os_task_param_t task_init_data)
 
     OSA_TimeDelay(3500);*/
 
+	  dd_init();
 
 
 
@@ -790,8 +792,30 @@ void AuxTask_task(os_task_param_t task_init_data)
     	valid = true;
     }
     if (buffer[0] == 'P' || buffer[0] == 'p') {
-    	printf("P!\n");
-    	valid = true;
+    		char * toks  = strtok(&buffer[0], " "); // skip the P
+
+    		generator_params_t * params = _mem_alloc_system(sizeof(generator_params_t));
+
+
+        	toks = strtok(NULL, " "); //store runtime
+        	if (toks == NULL) {
+        		valid = false;
+        	}
+        	params->runtime = atoi(toks);
+        	toks = strtok(NULL, " "); // store deadline
+        	if (toks == NULL) {
+        		valid = false;
+        	}
+        	params->deadline = atoi(toks);
+
+        	toks = strtok(NULL, " "); // store deadline
+        	if (toks == NULL) {
+        		valid = false;
+        	}
+        	params->period = atoi(toks);
+        	_task_id tid = _task_create(0, PERIODICGENERATOR_TASK, params);
+        	sprintf(resp, "Creating n periodic task (ID = %d) (R = %d; D = %d, P = %d)", tid, params->runtime, params->deadline, params->period);
+        	valid = true;
     }
 
     if (!valid) {
@@ -821,16 +845,15 @@ void PeriodicGenerator_task(os_task_param_t task_init_data)
   /* Write your local variable definition here */
   
 #ifdef PEX_USE_RTOS
+
+ generator_params_t* params = (generator_params_t*)task_init_data;
   while (1) {
 #endif
     /* Write your code here ... */
-    
-    
-    OSA_TimeDelay(10);                 /* Example code (for task release) */
+    dd_tcreate(USERTASK_TASK, params->deadline, params->runtime, TASK_TYPE_PERIODIC);
+    OSA_TimeDelay(params->period);                 /* Example code (for task release) */
    
-    
-    
-    
+
 #ifdef PEX_USE_RTOS   
   }
 #endif    
