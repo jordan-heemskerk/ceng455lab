@@ -47,6 +47,7 @@
 #include "DdsTask.h"
 #include "UserTask.h"
 #include "MonitorTask.h"
+#include "PeriodicGenerator.h"
 #if CPU_INIT_CONFIG
   #include "Init_Config.h"
 #endif

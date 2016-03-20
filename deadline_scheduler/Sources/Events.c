@@ -55,7 +55,7 @@ void myUART_RxCallback(uint32_t instance, void * uartState)
   /* Write your code here ... */
 
 	//debug
-	//printf("%s\n\n", myRxBuff);
+	printf("%s\n\n", myRxBuff);
 
 	// grab character and dump into serial_rxq
 

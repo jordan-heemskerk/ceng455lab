@@ -46,6 +46,7 @@
 #include "DdsTask.h"
 #include "UserTask.h"
 #include "MonitorTask.h"
+#include "PeriodicGenerator.h"
 
 #ifdef __cplusplus
 extern "C" {

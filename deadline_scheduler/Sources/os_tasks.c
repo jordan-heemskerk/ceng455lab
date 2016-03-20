@@ -40,6 +40,7 @@ extern "C" {
 _pool_id rx_message_pool;
 _pool_id tx_message_pool;
 _pool_id dds_message_pool;
+_pool_id dds_response_pool;
 
 _queue_id serial_tx_qid = 0;
 
@@ -70,7 +71,6 @@ void start_serial_task() {
 */
 void serial_task(os_task_param_t task_init_data)
 {
-	 //printf("serialTask Created!\n\r");
 
 	SERIAL_CHAR_MSG_PTR tx_msg_ptr;
 	if(serial_tx_qid == 0){
@@ -117,7 +117,7 @@ void queue_char(unsigned char recv_char, _queue_id qid) {
 	  SERIAL_CHAR_MSG_PTR tx_msg_ptr;
 	  bool result;
 
-	  tx_msg_ptr = (SERIAL_CHAR_MSG_PTR)_msg_alloc_system(tx_message_pool);
+	  tx_msg_ptr = (SERIAL_CHAR_MSG_PTR)_msg_alloc_system(sizeof(SERIAL_CHAR_MSG));
 
 	  if (tx_msg_ptr == NULL) {
 		  printf("\n Could not allocate a tx_msg_ptr\n");
@@ -442,6 +442,7 @@ void UserTask_task(os_task_param_t task_init_data)
 
 	uint32_t time_left = (uint32_t)task_init_data;
 
+	_task_id tid = _task_get_id();
 
 
 	TIME_STRUCT time_ptr;
@@ -461,7 +462,11 @@ void UserTask_task(os_task_param_t task_init_data)
 	// run stuff
 	while (ticks_left > 0) ticks_left--;
 
+	// user task removes itself after running
+
 	printf("Task %d: Finished\n", my_task);
+	dd_delete(tid);
+
 
 }
 
@@ -508,6 +513,8 @@ void MonitorTask_task(os_task_param_t task_init_data)
 */
 void DdsTask_task(os_task_param_t task_init_data)
 {
+
+	printf("DDS task started\n");
 	DDS_TASK_MSG_PTR dds_msg_ptr;
 
 	//Create message queue for incoming messages from AuxTask_task
@@ -532,7 +539,15 @@ void DdsTask_task(os_task_param_t task_init_data)
 	_time_get(&s_time);
 	uint32_t start_time = s_time.SECONDS*1000 + s_time.MILLISECONDS;
 
-	_msgpool_create_system(sizeof(DDS_TASK_MSG), DDS_MSG_QUEUE_SIZE, 0, 0);
+
+	dds_message_pool = _msgpool_create(sizeof(DDS_TASK_MSG), DDS_MSG_QUEUE_SIZE, 0, 0);
+	dds_response_pool = _msgpool_create(sizeof(DDS_RESP_MSG), DDS_MSG_QUEUE_SIZE, 0, 0);
+
+	if (dds_message_pool == 0) {
+		printf("Could not create dds message pool\n");
+		_task_block();
+	}
+
 
 	// create AUX task
 	_task_create(0, AUXTASK_TASK, 0);
@@ -572,7 +587,7 @@ void DdsTask_task(os_task_param_t task_init_data)
 
 
 		  		  DDS_RESP_MSG_PTR resp_msg_ptr;
-		  		  resp_msg_ptr = (DDS_RESP_MSG_PTR)_msg_alloc_system(dds_message_pool);
+		  		  resp_msg_ptr = (DDS_RESP_MSG_PTR)_msg_alloc(dds_response_pool);
 		  		  resp_msg_ptr->HEADER.TARGET_QID = dds_msg_ptr->HEADER.SOURCE_QID;
 		  		  resp_msg_ptr->HEADER.SOURCE_QID = _msgq_get_id(0, DDS_MSG_QUEUE);
 		  		  resp_msg_ptr->HEADER.SIZE = sizeof(DDS_RESP_MSG);
@@ -594,8 +609,8 @@ void DdsTask_task(os_task_param_t task_init_data)
 		  		  delete_task_list_entry(&active_tasks, command_data2->tid);
 		  		  _task_destroy(command_data2->tid);
 
-		  		  DDS_RESP_MSG_PTR del_resp_msg_ptr;
-		  		  del_resp_msg_ptr = (DDS_RESP_MSG_PTR)_msg_alloc_system(dds_message_pool);
+		  		/*  DDS_RESP_MSG_PTR del_resp_msg_ptr;
+		  		  del_resp_msg_ptr = (DDS_RESP_MSG_PTR)_msg_alloc(dds_response_pool);
 		  		  del_resp_msg_ptr->HEADER.TARGET_QID = dds_msg_ptr->HEADER.SOURCE_QID;
 		  		  del_resp_msg_ptr->HEADER.SOURCE_QID = _msgq_get_id(0, DDS_MSG_QUEUE);
 		  		  del_resp_msg_ptr->HEADER.SIZE = sizeof(DDS_RESP_MSG);
@@ -605,9 +620,10 @@ void DdsTask_task(os_task_param_t task_init_data)
 		  		  bool del_result = _msgq_send(del_resp_msg_ptr);
 
 		  		  if (del_result != TRUE) {
-		  			  printf("\n Delete: Could not send resp message\n");
+		  			  _mqx_uint error = _task_get_error();
+		  			  printf("\n Delete: Could not send resp message (error %d)\n", error);
 		  			  _task_block();
-		  		  }
+		  		  }*/
 		  		  // remove from active tasks
 		  		  break;
 		  	  case DDS_RETURN_ACTIVE_LIST:
@@ -618,14 +634,14 @@ void DdsTask_task(os_task_param_t task_init_data)
 		  		  break;
 		  }
 
-
+		  _msg_free(dds_msg_ptr);
 		  //TODO:
 		// Look at all tasks in active pool
 		// Select the task with the shortest deadline
 		// Set a timer for the deadline
 		// Run that task
 
-		_task_id tid_to_start;
+		_task_id tid_to_start = 0;
 		uint32_t  shortest = 0xFFFFFFFF;
 		uint16_t buffer_offset = 0;
 		task_list_entry_t* pos = active_tasks;
@@ -660,8 +676,13 @@ void DdsTask_task(os_task_param_t task_init_data)
 		}
 
 		_mqx_uint old;
-		_task_set_priority(tid_to_start, (PRIORITY_OSA_TO_RTOS(ACTIVE_USER_TASK_PRIORITY)), &old);
 
+		if (tid_to_start) {
+		printf("DEBUG: Choose to run %d\n", tid_to_start);
+		_task_set_priority(tid_to_start, (PRIORITY_OSA_TO_RTOS(ACTIVE_USER_TASK_PRIORITY)), &old);
+		} else {
+			printf("Choose to go idle, no tasks to run\n");
+		}
 		// set a timer for the deadline that sends an "expired message"
 	}
 
@@ -695,13 +716,12 @@ void DdsTask_task(os_task_param_t task_init_data)
 **     Returns : Nothing
 ** ===================================================================
 */
-#define AUXTASKQ 21
 void AuxTask_task(os_task_param_t task_init_data)
 {
   /* Write your local variable definition here */
 
-	 _queue_id rx_q = _msgq_open(AUXTASKQ, 0);
-	 OpenR(rx_q);
+	printf("AUX task created\n");
+	 OpenR(0);
 	 _queue_id serial = OpenW();
 
 #ifdef PEX_USE_RTOS
@@ -754,8 +774,14 @@ void AuxTask_task(os_task_param_t task_init_data)
 
 
     	toks = strtok(NULL, " "); //store runtime
+    	if (toks == NULL) {
+    		valid = false;
+    	}
     	runtime = atoi(toks);
     	toks = strtok(NULL, " "); // store deadline
+    	if (toks == NULL) {
+    		valid = false;
+    	}
     	deadline = atoi(toks);
 
 
@@ -779,6 +805,35 @@ void AuxTask_task(os_task_param_t task_init_data)
 #ifdef PEX_USE_RTOS
   }
 #endif
+}
+
+/*
+** ===================================================================
+**     Callback    : PeriodicGenerator_task
+**     Description : Task function entry.
+**     Parameters  :
+**       task_init_data - OS task parameter
+**     Returns : Nothing
+** ===================================================================
+*/
+void PeriodicGenerator_task(os_task_param_t task_init_data)
+{
+  /* Write your local variable definition here */
+  
+#ifdef PEX_USE_RTOS
+  while (1) {
+#endif
+    /* Write your code here ... */
+    
+    
+    OSA_TimeDelay(10);                 /* Example code (for task release) */
+   
+    
+    
+    
+#ifdef PEX_USE_RTOS   
+  }
+#endif    
 }
 
 /* END os_tasks */

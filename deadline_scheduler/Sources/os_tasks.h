@@ -46,6 +46,7 @@
 #include "DdsTask.h"
 #include "UserTask.h"
 #include "MonitorTask.h"
+#include "PeriodicGenerator.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,7 +56,7 @@ extern "C" {
 
 #define RX_MSG_QUEUE_SIZE 3*128
 #define TX_MSG_QUEUE_SIZE 1024
-#define DDS_MSG_QUEUE_SIZE 1024
+#define DDS_MSG_QUEUE_SIZE 16
 
 
 #define RX_MSG_QUEUE 8
@@ -95,6 +96,7 @@ typedef struct dds_task_message
 extern _pool_id rx_message_pool;
 extern _pool_id tx_message_pool;
 extern _pool_id dds_message_pool;
+
 
 /*
 ** ===================================================================
@@ -162,6 +164,17 @@ void DdsTask_task(os_task_param_t task_init_data);
 ** ===================================================================
 */
 void AuxTask_task(os_task_param_t task_init_data);
+
+/*
+** ===================================================================
+**     Callback    : PeriodicGenerator_task
+**     Description : Task function entry.
+**     Parameters  :
+**       task_init_data - OS task parameter
+**     Returns : Nothing
+** ===================================================================
+*/
+void PeriodicGenerator_task(os_task_param_t task_init_data);
 
 /* END os_tasks */
 
