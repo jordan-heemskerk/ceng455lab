@@ -56,7 +56,7 @@ extern "C" {
 
 #define RX_MSG_QUEUE_SIZE 3*128
 #define TX_MSG_QUEUE_SIZE 1024
-#define DDS_MSG_QUEUE_SIZE 16
+#define DDS_MSG_QUEUE_SIZE 18
 
 
 #define RX_MSG_QUEUE 8
@@ -72,7 +72,8 @@ typedef enum dds_command{
 	DDS_CREATE,
 	DDS_DELETE,
 	DDS_RETURN_ACTIVE_LIST,
-	DDS_RETURN_OVERDUE_LIST
+	DDS_RETURN_OVERDUE_LIST,
+	DDS_DEADLINE
 }dds_command_e;
 
 typedef struct dds_response_message {
@@ -92,6 +93,12 @@ typedef struct dds_task_message
 	dds_command_e dds_command;
 	void *data;
 } DDS_TASK_MSG, * DDS_TASK_MSG_PTR;
+
+typedef struct generator_params {
+	uint32_t deadline;
+	uint32_t runtime;
+	uint32_t period;
+} generator_params_t;
 
 extern _pool_id rx_message_pool;
 extern _pool_id tx_message_pool;

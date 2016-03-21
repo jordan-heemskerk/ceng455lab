@@ -12,7 +12,7 @@ typedef struct task_list_data {
 	uint32_t deadline;
 	task_type_e task_type;
 	uint32_t creation_time;
-
+	_task_id gid;
 } task_list_data_t;
 
 
@@ -22,6 +22,7 @@ typedef struct create_command_data {
 	uint32_t deadline;
 	uint32_t runtime;
 	task_type_e task_type;
+	_task_id gid;
 
 } create_command_data_t;
 
@@ -30,6 +31,10 @@ typedef struct delete_command_data {
 	uint32_t tid;
 
 } delete_command_data_t;
+
+typedef struct deadline_command_data {
+	uint32_t tid;
+} deadline_command_data_t;
 
 typedef struct task_list_entry {
 
@@ -98,10 +103,6 @@ void delete_task_list_entry(task_list_entry_t** head, uint32_t tid) {
 		pos = pos->next;
 	}
 
-	if (to_free != NULL) {
-		_mem_free(to_free->data);
-		_mem_free(to_free);
-	}
 }
 
 
