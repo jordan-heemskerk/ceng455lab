@@ -15,11 +15,10 @@ void dd_init() {
 	_mutatr_init(&_write_task_m_attr);
 	_mutex_init(&_write_task_m, &_write_task_m_attr);
 
-	delete_qid = _msgq_open(DELETE_QUEUE, 0);
 
 }
 
-_task_id dd_tcreate(uint32_t template_index, uint32_t deadline, uint32_t runtime, task_type_e task_type) {
+_task_id dd_tcreate(uint32_t template_index, uint32_t deadline, uint32_t runtime, task_type_e task_type, _task_id gid) {
 
 	_mutex_lock(&_create_m);
 	 DDS_TASK_MSG_PTR dds_msg_ptr;
@@ -50,6 +49,10 @@ _task_id dd_tcreate(uint32_t template_index, uint32_t deadline, uint32_t runtime
 	  command_data->template_index = template_index;
 	  command_data->runtime = runtime;
 	  command_data->task_type = task_type;
+
+	  if (gid != 0 && task_type == TASK_TYPE_PERIODIC) {
+		  command_data->gid = gid;
+	  }
 
 	  dds_msg_ptr->HEADER.TARGET_QID = _msgq_get_id(0, DDS_MSG_QUEUE);
 	  dds_msg_ptr->HEADER.SOURCE_QID = create_qid;
@@ -87,7 +90,7 @@ uint32_t dd_delete(uint32_t tid) {
 	 DDS_RESP_MSG_PTR resp_msg_ptr;
 	  bool result;
 
-
+		delete_qid = _msgq_open(DELETE_QUEUE, 0);
 
 		if (delete_qid == MSGQ_INVALID_QUEUE_NUMBER) {
 			printf("dd_delete: Could not open the delete queue\n");
@@ -127,7 +130,7 @@ uint32_t dd_delete(uint32_t tid) {
 	  }
 
 	  _task_id to_return = resp_msg_ptr->success;
-	  //_msgq_close(delete_qid);
+	  _msgq_close(delete_qid);
 	  return to_return;
 }
 

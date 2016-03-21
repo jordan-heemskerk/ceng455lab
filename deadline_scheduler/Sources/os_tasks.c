@@ -32,6 +32,7 @@
 #include "Events.h"
 #include "rtos_main_task.h"
 #include "os_tasks.h"
+#include <timer.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -424,7 +425,7 @@ void handler_task(os_task_param_t task_init_data)
 #endif
 }
 
-
+_timer_id deadline_expiry_timer;
 uint32_t task_counter = 0;
 /*
 ** ===================================================================
@@ -465,6 +466,7 @@ void UserTask_task(os_task_param_t task_init_data)
 	// user task removes itself after running
 
 	printf("Task %d: Finished\n", my_task);
+	_timer_cancel(deadline_expiry_timer);
 	dd_delete(tid);
 
 
@@ -499,8 +501,50 @@ void MonitorTask_task(os_task_param_t task_init_data)
 #endif
 }
 
+
+
+
 //TIMER FUNCTION HERE
 	// => send a message to the dds queue
+#define DEADLINE_QUEUE 14
+void deadline_expiry(_timer_id id, void* data_ptr, MQX_TICK_STRUCT_PTR tick_ptr) {
+
+
+	printf("DEBUG: DEADLINE REACHED\n");
+
+	 DDS_TASK_MSG_PTR dds_msg_ptr;
+
+	  bool result;
+
+
+	  dds_msg_ptr = (DDS_TASK_MSG_PTR)_msg_alloc(dds_message_pool);
+
+	  if (dds_msg_ptr == NULL) {
+		  printf("\n dd_deadline: Could not allocate a dds_msg_ptr\n");
+		  _task_block();
+	  }
+
+
+
+
+	  // allocate and set a strcut for create_command_data_t
+	  deadline_command_data_t* deadline_data = _mem_alloc_system(sizeof(deadline_command_data_t));
+	  deadline_data->tid = *(_task_id*)data_ptr;
+
+	  dds_msg_ptr->HEADER.TARGET_QID = _msgq_get_id(0, DDS_MSG_QUEUE);
+	  dds_msg_ptr->HEADER.SIZE = sizeof(DDS_TASK_MSG);
+	  dds_msg_ptr->data = deadline_data;
+	  dds_msg_ptr->dds_command = DDS_DEADLINE;
+
+	  result = _msgq_send(dds_msg_ptr);
+
+	  if (result != TRUE) {
+		  printf("\n dd_deadline: Could not send dds message\n");
+		  _task_block();
+	  }
+	  return;
+
+}
 
 /*
 ** ===================================================================
@@ -513,6 +557,8 @@ void MonitorTask_task(os_task_param_t task_init_data)
 */
 void DdsTask_task(os_task_param_t task_init_data)
 {
+
+
 
 	printf("DDS task started\n");
 	DDS_TASK_MSG_PTR dds_msg_ptr;
@@ -579,10 +625,15 @@ void DdsTask_task(os_task_param_t task_init_data)
 		  		  _task_id tid = _task_create(0, command_data->template_index, command_data->runtime);
 		  		  new_task->tid = tid;
 
+
+
 		  		  TIME_STRUCT current_time;
 		  		  _time_get(&current_time);
 		  		  new_task->creation_time = (current_time.SECONDS*1000 + current_time.MILLISECONDS) - start_time;
 		  		  new_task->task_type = command_data->task_type;
+		  		  if (command_data->task_type == TASK_TYPE_PERIODIC) {
+		  			  new_task->gid = command_data->gid;
+		  		  }
 		  		  add_task_list_entry(&active_tasks, new_task);
 
 
@@ -609,7 +660,7 @@ void DdsTask_task(os_task_param_t task_init_data)
 		  		  delete_command_data_t* command_data2 = (delete_command_data_t *) dds_msg_ptr->data;
 		  		  //printf("tid: %d \n", command_data2->tid);
 		  		  delete_task_list_entry(&active_tasks, command_data2->tid);
-		  		  _task_destroy(command_data2->tid);
+
 
 		  		  DDS_RESP_MSG_PTR resp_msg_ptr;
 		  		  resp_msg_ptr = (DDS_RESP_MSG_PTR)_msg_alloc(dds_response_pool);
@@ -625,6 +676,7 @@ void DdsTask_task(os_task_param_t task_init_data)
 		  			  _task_block();
 		  		  }
 		  		  // remove from active tasks
+		  		  _task_destroy(command_data2->tid);
 		  		  break;
 		  	  }
 		  	  case DDS_RETURN_ACTIVE_LIST:
@@ -633,6 +685,57 @@ void DdsTask_task(os_task_param_t task_init_data)
 		  	  case DDS_RETURN_OVERDUE_LIST:
 		  		  //TODO
 		  		  break;
+		  	  case DDS_DEADLINE:  ;
+		  	  	  {
+
+		  		       deadline_command_data_t* command_data = (deadline_command_data_t *) dds_msg_ptr->data;
+
+		  		  	  	task_list_entry_t* pos = active_tasks;
+		  				while (pos != NULL) {
+
+		  					task_list_data_t* data = pos->data;
+
+		  					if (_task_get_td(data->tid) == NULL) {
+		  						// task doesn't exist in system anymore
+		  						pos = pos->next;
+		  						//remove from ll
+		  						delete_task_list_entry(&active_tasks, data->tid);
+		  						printf("Don't think we should get here\n");
+		  						continue;
+		  					}
+
+		  					if (command_data->tid == data->tid) {
+		  						// this is the task we want
+		  						add_task_list_entry(&overdue_tasks, data);
+		  						delete_task_list_entry(&active_tasks, command_data->tid);
+		  						_task_abort(data->tid);
+
+		  						if (data->task_type == TASK_TYPE_PERIODIC) {
+		  							// delete the generator
+		  							_task_abort(data->gid);
+		  							// remove any tasks that have gid == data->gid
+		  							task_list_entry_t* pos2 = active_tasks;
+		  							while (pos2 != NULL) {
+
+		  										task_list_data_t* data2 = pos->data;
+
+		  										if (data2->gid == data->gid) {
+													add_task_list_entry(&overdue_tasks, data2);
+													delete_task_list_entry(&active_tasks, data2->tid);
+													_task_abort(data2->tid);
+		  										}
+
+		  										pos2 = pos2->next;
+		  									}
+		  						}
+
+		  						break;
+		  					}
+		  					pos = pos->next;
+		  				}
+
+		  		  	  break;
+		  	  	  }
 		  }
 
 		  _msg_free(dds_msg_ptr);
@@ -679,12 +782,29 @@ void DdsTask_task(os_task_param_t task_init_data)
 		_mqx_uint old;
 
 		if (tid_to_start) {
-		printf("DEBUG: Choose to run %d\n", tid_to_start);
-		_task_set_priority(tid_to_start, (PRIORITY_OSA_TO_RTOS(ACTIVE_USER_TASK_PRIORITY)), &old);
+			printf("DEBUG: Choose to run %d\n", tid_to_start);
+			_task_set_priority(tid_to_start, (PRIORITY_OSA_TO_RTOS(ACTIVE_USER_TASK_PRIORITY)), &old);
+			_task_id* deadline_val = _mem_alloc(sizeof(_task_id));
+			*deadline_val = tid_to_start;
+
+			TIME_STRUCT current_time;
+			_time_get(&current_time);
+
+			uint32_t c_time = current_time.MILLISECONDS + current_time.SECONDS* 1000;
+			uint32_t wait_for = shortest - c_time;
+
+			TIME_STRUCT wait_for_s;
+			wait_for_s.MILLISECONDS = shortest % 1000;
+			wait_for_s.SECONDS = shortest/1000;
+			// clear any existing timer
+			_timer_cancel(deadline_expiry_timer);
+			deadline_expiry_timer = _timer_start_oneshot_at(deadline_expiry, deadline_val, TIMER_ELAPSED_TIME_MODE, &wait_for_s);
+			// set a timer for the deadline that sends an "expired message"
 		} else {
 			printf("Choose to go idle, no tasks to run\n");
 		}
-		// set a timer for the deadline that sends an "expired message"
+
+
 	}
 
 
@@ -788,7 +908,7 @@ void AuxTask_task(os_task_param_t task_init_data)
 
 
     	sprintf(resp, "Creating an aperiodic task (R = %d; D = %d)", runtime, deadline);
-    	_task_id t1 = dd_tcreate(USERTASK_TASK, deadline, runtime, TASK_TYPE_APERIODIC);
+    	_task_id t1 = dd_tcreate(USERTASK_TASK, deadline, runtime, TASK_TYPE_APERIODIC, 0);
     	valid = true;
     }
     if (buffer[0] == 'P' || buffer[0] == 'p') {
@@ -814,7 +934,23 @@ void AuxTask_task(os_task_param_t task_init_data)
         	}
         	params->period = atoi(toks);
         	_task_id tid = _task_create(0, PERIODICGENERATOR_TASK, params);
-        	sprintf(resp, "Creating n periodic task (ID = %d) (R = %d; D = %d, P = %d)", tid, params->runtime, params->deadline, params->period);
+        	sprintf(resp, "Creating a periodic task (ID = %d) (R = %d; D = %d, P = %d)", tid, params->runtime, params->deadline, params->period);
+        	valid = true;
+    }
+
+    if (buffer[0] == 'D' || buffer[0] == 'd') {
+    		char * toks  = strtok(&buffer[0], " "); // skip the P
+
+    		_task_id to_destroy;
+
+
+        	toks = strtok(NULL, " "); //store runtime
+        	if (toks == NULL) {
+        		valid = false;
+        	}
+        	to_destroy = atoi(toks);
+	  		_task_destroy(to_destroy);
+        	sprintf(resp, "Deleting periodic task %d", to_destroy);
         	valid = true;
     }
 
@@ -845,12 +981,13 @@ void PeriodicGenerator_task(os_task_param_t task_init_data)
   /* Write your local variable definition here */
   
 #ifdef PEX_USE_RTOS
-
+ _task_id gid = _task_get_id();
  generator_params_t* params = (generator_params_t*)task_init_data;
   while (1) {
 #endif
     /* Write your code here ... */
-    dd_tcreate(USERTASK_TASK, params->deadline, params->runtime, TASK_TYPE_PERIODIC);
+
+    dd_tcreate(USERTASK_TASK, params->deadline, params->runtime, TASK_TYPE_PERIODIC, gid);
     OSA_TimeDelay(params->period);                 /* Example code (for task release) */
    
 

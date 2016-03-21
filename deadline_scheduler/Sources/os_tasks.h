@@ -72,7 +72,8 @@ typedef enum dds_command{
 	DDS_CREATE,
 	DDS_DELETE,
 	DDS_RETURN_ACTIVE_LIST,
-	DDS_RETURN_OVERDUE_LIST
+	DDS_RETURN_OVERDUE_LIST,
+	DDS_DEADLINE
 }dds_command_e;
 
 typedef struct dds_response_message {
