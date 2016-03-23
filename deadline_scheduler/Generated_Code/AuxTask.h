@@ -7,7 +7,7 @@
 **     Version     : Component 1.3.0, Driver 01.00, CPU db: 3.00.000
 **     Repository  : KSDK 1.3.0
 **     Compiler    : GNU C Compiler
-**     Date/Time   : 2016-03-20, 11:39, # CodeGen: 8
+**     Date/Time   : 2016-03-23, 11:05, # CodeGen: 10
 **     Contents    :
 **         Init - osa_status_t AuxTask_Init(void);
 **
@@ -64,7 +64,7 @@
 /* AuxTask task name */  
 #define AUXTASK_TASK_NAME              "auxtask"
 /* AuxTask task stack size */  
-#define AUXTASK_TASK_STACK_SIZE        2048U
+#define AUXTASK_TASK_STACK_SIZE        4096U
 /* AuxTask task priority value */  
 #define AUXTASK_TASK_PRIORITY          16U
 /*

@@ -213,7 +213,7 @@
 ** _io_printf and _io_scanf will include floating point I/O code.
 */
 #ifndef MQX_INCLUDE_FLOATING_POINT_IO
-#define MQX_INCLUDE_FLOATING_POINT_IO 0
+#define MQX_INCLUDE_FLOATING_POINT_IO 1
 #endif
 
 

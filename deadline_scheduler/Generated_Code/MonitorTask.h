@@ -7,7 +7,7 @@
 **     Version     : Component 1.3.0, Driver 01.00, CPU db: 3.00.000
 **     Repository  : KSDK 1.3.0
 **     Compiler    : GNU C Compiler
-**     Date/Time   : 2016-03-09, 13:53, # CodeGen: 0
+**     Date/Time   : 2016-03-23, 11:05, # CodeGen: 10
 **     Contents    :
 **         Init - osa_status_t MonitorTask_Init(void);
 **
@@ -64,7 +64,7 @@
 /* MonitorTask task name */  
 #define MONITORTASK_TASK_NAME          "monitortask"
 /* MonitorTask task stack size */  
-#define MONITORTASK_TASK_STACK_SIZE    1024U
+#define MONITORTASK_TASK_STACK_SIZE    4096U
 /* MonitorTask task priority value */  
 #define MONITORTASK_TASK_PRIORITY      20U
 /*

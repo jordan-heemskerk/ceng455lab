@@ -3,7 +3,7 @@
 
 #include <mutex.h>
 
-#define PUT_BUFFER_SIZE 256
+#define PUT_BUFFER_SIZE 1024
 
 _task_id _write_task = 0;
 MUTEX_ATTR_STRUCT _write_task_m_attr;

@@ -7,7 +7,7 @@
 **     Version     : Component 1.3.0, Driver 01.00, CPU db: 3.00.000
 **     Repository  : KSDK 1.3.0
 **     Compiler    : GNU C Compiler
-**     Date/Time   : 2016-03-20, 13:23, # CodeGen: 9
+**     Date/Time   : 2016-03-23, 11:05, # CodeGen: 10
 **     Contents    :
 **         Init - osa_status_t PeriodicGenerator_Init(void);
 **
@@ -64,7 +64,7 @@
 /* PeriodicGenerator task name */  
 #define PERIODICGENERATOR_TASK_NAME    "periodicgenerator"
 /* PeriodicGenerator task stack size */  
-#define PERIODICGENERATOR_TASK_STACK_SIZE 1024U
+#define PERIODICGENERATOR_TASK_STACK_SIZE 4096U
 /* PeriodicGenerator task priority value */  
 #define PERIODICGENERATOR_TASK_PRIORITY 17U
 /*

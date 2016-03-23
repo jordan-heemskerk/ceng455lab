@@ -65,7 +65,7 @@ void task_list_summary_str(task_list_entry_t* head, char * buffer) {
 	task_list_entry_t* pos = head;
 	while (pos != NULL) {
 
-		buffer_offset += sprintf(buffer+buffer_offset, "%p -> %p: (tid=%d; deadline=%d; task_type=%d; creation_time=%d)\n",
+		buffer_offset += sprintf(buffer+buffer_offset, "%p -> %p: (tid=%d; deadline=%d; task_type=%d; creation_time=%d)\n\r",
 				pos,
 				pos->next,
 				((task_list_data_t*)pos->data)->tid,

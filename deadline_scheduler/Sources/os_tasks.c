@@ -425,6 +425,9 @@ void handler_task(os_task_param_t task_init_data)
 #endif
 }
 
+uint32_t ticks_in_user_task = 0;
+uint32_t ms_in_dds = 0;
+uint32_t start_time = 0;
 _timer_id deadline_expiry_timer;
 uint32_t task_counter = 0;
 /*
@@ -453,7 +456,7 @@ void UserTask_task(os_task_param_t task_init_data)
 	MQX_TICK_STRUCT tick_time_ptr;
 
 	_time_to_ticks(&time_ptr, &tick_time_ptr);
-	uint32_t ticks_left = tick_time_ptr.TICKS[0] * _time_get_hwticks_per_tick()/10;
+	uint32_t ticks_left = tick_time_ptr.TICKS[0] * _time_get_hwticks_per_tick()/15;
 
 
 	uint32_t my_task = task_counter;
@@ -461,7 +464,10 @@ void UserTask_task(os_task_param_t task_init_data)
 	printf("Task %d: Running a task for %d milliseconds\n", my_task, (uint32_t)task_init_data);
 
 	// run stuff
-	while (ticks_left > 0) ticks_left--;
+	while (ticks_left > 0) {
+		ticks_left--;
+		ticks_in_user_task++;
+	}
 
 	// user task removes itself after running
 
@@ -491,7 +497,33 @@ void MonitorTask_task(os_task_param_t task_init_data)
     /* Write your code here ... */
 
 
-    OSA_TimeDelay(10);                 /* Example code (for task release) */
+	  // Output the processor utilitzation and system overhead
+
+		  TIME_STRUCT current_time;
+		  _time_get(&current_time);
+		  uint32_t running = (current_time.SECONDS*1000 + current_time.MILLISECONDS) - start_time;
+
+	// time user tasks have been running
+
+
+			TIME_STRUCT time_ptr;
+			MQX_TICK_STRUCT tick_time_ptr;
+			memset(&tick_time_ptr, 0, sizeof(tick_time_ptr));
+			uint32_t ticks_ran = ticks_in_user_task / (_time_get_hwticks_per_tick()/15);
+			tick_time_ptr.TICKS[0] = ticks_ran;
+			_ticks_to_time(&tick_time_ptr, &time_ptr);
+			uint32_t time_in_ut = time_ptr.SECONDS * 1000 + time_ptr.MILLISECONDS;
+
+			uint32_t utilization = (time_in_ut*100)/(running);
+			uint32_t dds_overhead = (ms_in_dds*10000)/(running);
+
+			uint16_t infront = dds_overhead/100;
+			uint16_t behind = dds_overhead%100;
+			printf("Monitor Info: Utilization=%d%% Overhead=%d.%02d%% \n", utilization, infront, behind);
+
+	// how long the system been running
+
+    OSA_TimeDelay(5000);                 /* Example code (for task release) */
 
 
 
@@ -555,6 +587,7 @@ void deadline_expiry(_timer_id id, void* data_ptr, MQX_TICK_STRUCT_PTR tick_ptr)
 **     Returns : Nothing
 ** ===================================================================
 */
+
 void DdsTask_task(os_task_param_t task_init_data)
 {
 
@@ -583,7 +616,7 @@ void DdsTask_task(os_task_param_t task_init_data)
 
 	TIME_STRUCT s_time;
 	_time_get(&s_time);
-	uint32_t start_time = s_time.SECONDS*1000 + s_time.MILLISECONDS;
+	start_time = s_time.SECONDS*1000 + s_time.MILLISECONDS;
 
 
 	dds_message_pool = _msgpool_create(sizeof(DDS_TASK_MSG), DDS_MSG_QUEUE_SIZE, 0, 0);
@@ -602,6 +635,10 @@ void DdsTask_task(os_task_param_t task_init_data)
 		//Block while waiting to recieve a message from the message queue
 		  dds_msg_ptr = _msgq_receive(dds_task_qid, 0);
 
+  		  TIME_STRUCT dds_start;
+  		  _time_get(&dds_start);
+
+		  // start timer
 		  if (dds_msg_ptr == NULL) {
 			  printf("\n Receiving message failed\n");
 			  _task_block();
@@ -718,8 +755,9 @@ void DdsTask_task(os_task_param_t task_init_data)
 		  							while (pos2 != NULL) {
 
 		  										task_list_data_t* data2 = pos->data;
-
-		  										if (data2->gid == data->gid) {
+		  										// remove if this isn't same as above
+		  										// all tasks that have same generator id, but not same tid
+		  										if (data2->gid == data->gid && data2->tid != data->tid) {
 													add_task_list_entry(&overdue_tasks, data2);
 													delete_task_list_entry(&active_tasks, data2->tid);
 													_task_abort(data2->tid);
@@ -791,7 +829,11 @@ void DdsTask_task(os_task_param_t task_init_data)
 			_time_get(&current_time);
 
 			uint32_t c_time = current_time.MILLISECONDS + current_time.SECONDS* 1000;
-			uint32_t wait_for = shortest - c_time;
+			int32_t wait_for = shortest - c_time;
+			if (wait_for < 0) {
+				printf("\nBlew a deadline\n");
+			}
+
 
 			TIME_STRUCT wait_for_s;
 			wait_for_s.MILLISECONDS = shortest % 1000;
@@ -803,8 +845,13 @@ void DdsTask_task(os_task_param_t task_init_data)
 		} else {
 			printf("Choose to go idle, no tasks to run\n");
 		}
+		// stop timer and add to total
+		  TIME_STRUCT dds_end;
+		  _time_get(&dds_end);
 
-
+		 uint32_t dds_start_ms = dds_start.SECONDS*1000 + dds_start.MILLISECONDS;
+		 uint32_t dds_end_ms = dds_end.SECONDS*1000 + dds_end.MILLISECONDS;
+		 ms_in_dds += (dds_end_ms - dds_start_ms);
 	}
 
 
@@ -842,8 +889,7 @@ void AuxTask_task(os_task_param_t task_init_data)
   /* Write your local variable definition here */
 
 	printf("AUX task created\n");
-	 OpenR(0);
-	 _queue_id serial = OpenW();
+
 
 #ifdef PEX_USE_RTOS
   while (1) {
@@ -871,15 +917,16 @@ void AuxTask_task(os_task_param_t task_init_data)
 	char buffer[128];
 	memset(&buffer, 0, 128);
 
-	char resp[128];
-	memset(&resp, 0, 128);
+	char resp[1000];
+	memset(&resp, 0, 512);
 
-
+	OpenR(0);
     if (!_getline(&buffer)) {
     	printf("_getline failed\n");
     	_task_block();
     }
 
+    Close();
     bool valid = false;
 
     if (buffer[0] == '\0') {
@@ -938,6 +985,21 @@ void AuxTask_task(os_task_param_t task_init_data)
         	valid = true;
     }
 
+    if (buffer[0] == 'L' || buffer[0] == 'l') {
+    	if (buffer[1] == 'A' || buffer[1] == 'a') {
+    		task_list_entry_t* active_tasks;
+    		dd_return_active_list(&active_tasks);
+    		task_list_summary_str(active_tasks, &resp[0]);
+    		valid = true;
+    	}
+    	if (buffer[1] == 'O' || buffer[1] == 'o') {
+    		task_list_entry_t* overdue_tasks;
+    		dd_return_overdue_list(&overdue_tasks);
+    		task_list_summary_str(overdue_tasks, &resp[0]);
+    		valid = true;
+    	}
+    }
+
     if (buffer[0] == 'D' || buffer[0] == 'd') {
     		char * toks  = strtok(&buffer[0], " "); // skip the P
 
@@ -958,8 +1020,9 @@ void AuxTask_task(os_task_param_t task_init_data)
     	sprintf(resp, "Invalid command");
     }
 
+    _queue_id serial = OpenW();
 	_putline(serial, resp);
-
+	Close();
 
 
 #ifdef PEX_USE_RTOS
